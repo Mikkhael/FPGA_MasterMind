@@ -12,9 +12,13 @@ module VGA_RAM_Controller(
 
 reg [10:0] cnt_h  = 1055;
 reg [9:0]  cnt_v  = 627;
-
 reg [1:0] cell_h = 0;
 reg [1:0] cell_v = 0;
+
+reg [10:0] cnt_h_2  = 2;
+reg [9:0]  cnt_v_2  = 0;
+reg [1:0] cell_h_2 = 0;
+reg [1:0] cell_v_2 = 0;
 
 reg [2:0] color = 3'b000;
 
@@ -24,17 +28,19 @@ assign VSYNC = (cnt_v >= 601 && cnt_v < 605);
 
 assign ram_rdclk = clk;
 
-always @(posedge clk) begin
-	
+
+task advance_counters( inout [10:0] cnt_h, inout [9:0] cnt_v, inout [1:0] cell_h, inout [1:0] cell_v);
+begin
+
 	if(cnt_h == 1055) begin
 		cnt_h = 0;
 		if(cnt_v == 627) begin
 			cnt_v = 0;
 		end else begin
-			cnt_v = cnt_v + 10'd1;
+			cnt_v = cnt_v + 1'd1;
 		end
 	end else begin
-		cnt_h = cnt_h + 11'd1;
+		cnt_h = cnt_h + 1'd1;
 	end
 	
 	case(cnt_h)
@@ -50,9 +56,17 @@ always @(posedge clk) begin
 		10'd450 : cell_v = 2'd3;
 	endcase
 	
-	ram_rdaddr = {cell_h, cell_v};
+end
+endtask
+
+always @(posedge clk) begin
 	
-	color = cnt_h[0] ? ram_q[2:0] : ram_q[5:3];
+	advance_counters(cnt_h, cnt_v, cell_h, cell_v);
+	advance_counters(cnt_h_2, cnt_v_2, cell_h_2, cell_v_2);
+	
+	ram_rdaddr = {cell_h_2, cell_v_2};
+	
+	color = cnt_h[1] ? ram_q[2:0] : ram_q[5:3];
 end
 
 
