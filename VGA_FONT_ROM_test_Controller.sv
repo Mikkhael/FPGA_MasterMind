@@ -25,7 +25,8 @@ module VGA_FONT_ROM_test_Controller # (
 	output reg  [(ADDR_SIZE-1):0]	rom_addr = 0, 
 	input  wire	[(FNT_W-1):0]     rom_q,
 	
-	
+	input  wire [3:0][3:0] nums [0:3],
+	input  wire [1:0]  curr_num,
 	
 	output wire [2:0] RGB,
 	output wire 		HSYNC,
@@ -40,7 +41,8 @@ typedef struct {
 	reg [10:0] cnt_h;
 	reg [10:0] cnt_v;
 	
-	reg [3:0] char;
+	reg [10:0] char;
+	reg [10:0] row;
 	reg [3:0] line;
 	reg [(ADDR_SIZE-1):0] lineoff;
 	reg [3:0] subline;
@@ -103,6 +105,7 @@ begin
 			if(c.line == FNT_H + 1) begin
 				c.line = 0;
 				c.lineoff = 0;
+				c.row = c.row + 1'd1;
 			end
 		end
 		
@@ -115,6 +118,7 @@ begin
 			c.subline = 0;
 			c.line = 0;
 			c.lineoff = 0;
+			c.row = 0;
 		end
 	end
 	
@@ -123,7 +127,13 @@ end
 endtask
 
 
+reg [10:0] circ_x = 0;
+reg [10:0] circ_y = 0;
+reg [10:0] circ_r = 0;
 
+reg [21:0] circ_x2 = 0;
+reg [21:0] circ_y2 = 0;
+reg [21:0] circ_r2 = 0;
 
 always @(posedge clk) begin
 	
@@ -132,7 +142,13 @@ always @(posedge clk) begin
 	
 	if(fetch_counters.col == 0 && fetch_counters.subcol == 0) begin
 		curr_line = rom_q;
-		rom_addr = fetch_counters.char + fetch_counters.lineoff;
+		if(fetch_counters.row <= 2 || fetch_counters.row > 6) begin
+			rom_addr = (fetch_counters.char % 16) + fetch_counters.lineoff;
+		end else begin
+			if(fetch_counters.char > 2 || fetch_counters.char <= 6) begin
+				rom_addr = nums[fetch_counters.row - 3][3 + 3 - fetch_counters.char] + fetch_counters.lineoff;
+			end
+		end
 	end
 	
 	
@@ -141,8 +157,78 @@ always @(posedge clk) begin
 	end else if(draw_counters.line == FNT_H) begin
 		color = 3'b000;
 	end else begin
-		color = curr_line[3 - (draw_counters.col)] ? 3'b100 : 3'b000;
+		if(draw_counters.row <= 2 || draw_counters.row > 6) begin
+			color = curr_line[3 - (draw_counters.col)] ? 3'b100 : 3'b000;
+		end else begin
+			if(draw_counters.char <= 2 || draw_counters.char > 6) begin
+				color = 3'b000;
+			end else begin
+				color = curr_line[3 - (draw_counters.col)] ? ((draw_counters.row == curr_num + 3) ? 3'b101 : 3'b001) : 3'b000;
+			end
+		end
 	end
+	
+	
+	if(nums[3][0][1:0] == 0) begin // Parabolokoło
+		circ_x = draw_counters.cnt_h - (50 + nums[0][2:1]);
+		circ_y = draw_counters.cnt_v - (50 + nums[1][2:1]);
+		circ_r = 4  + nums[2][2:1];
+		
+		circ_x2 = circ_x * circ_x;
+		circ_y2 = circ_y * circ_y;
+		circ_r2 = circ_r * circ_r;
+		
+		if(circ_x2 + circ_y2 <= circ_r2) begin
+			color[1] = 1;
+		end
+	end else if (nums[3][0][1:0] == 1) begin // Fajerwerkoło
+		circ_x = draw_counters.cnt_h - (50 + nums[0][2:1]);
+		circ_y = draw_counters.cnt_v - (50 + nums[1][2:1]);
+		circ_r = 4  + nums[2][2:1];
+		
+		circ_x2 = circ_x * circ_x;
+		circ_y2 = circ_y * circ_y;
+		circ_r2 = circ_r * circ_r;
+		
+		if(circ_x2[10:0] + circ_y2[10:0] <= circ_r2[10:0]) begin
+			color[1] = 1;
+		end
+	end else if (nums[3][0][1:0] == 2) begin // Fajerwerkoło ale inne
+	
+		circ_x = (50 + nums[0][2:1]);
+		circ_y = (50 + nums[1][2:1]);
+		circ_r = (4  + nums[2][2:1]);
+		
+		if((draw_counters.cnt_h - circ_x) * (draw_counters.cnt_h - circ_x) +
+			(draw_counters.cnt_v - circ_y) * (draw_counters.cnt_v - circ_y) <=
+			(circ_r) * (circ_r)) begin
+				color[1] = 1;
+		end
+	end else if (nums[3][0][1:0] == 3) begin // Kołokoło
+		if(draw_counters.cnt_h >= (50 + nums[0][2:1]))
+			circ_x = draw_counters.cnt_h - (50 + nums[0][2:1]);
+		else
+			circ_x = (50 + nums[0][2:1]) - draw_counters.cnt_h;
+			
+		if(draw_counters.cnt_v >= (50 + nums[1][2:1]))
+			circ_y = draw_counters.cnt_v - (50 + nums[1][2:1]);
+		else
+			circ_y = (50 + nums[1][2:1]) - draw_counters.cnt_v;
+			
+		circ_r = 4  + nums[2][2:1];
+		
+		circ_x2 = circ_x * circ_x;
+		circ_y2 = circ_y * circ_y;
+		circ_r2 = circ_r * circ_r;
+		
+		if(circ_x2 + circ_y2 <= circ_r2) begin
+			color[1] = 1;
+		end
+	end
+
+	
+	
+	
 	
 //	if(draw_counters.char + 1 == fetch_counters.char) begin
 //		color[0] = 1;
