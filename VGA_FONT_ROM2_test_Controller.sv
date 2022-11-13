@@ -1,23 +1,23 @@
 module VGA_FONT_ROM2_test_Controller # (
-	parameter FNT_H  = 6, // Font height
-	parameter FNT_W  = 4, // Font width
-	parameter FNT_C  = 16, // Font characters count
-	parameter ADDR_SIZE    = 7, // Width of address bus for FONT ROM
+	parameter FNT_H  = 4'd6, // Font height
+	parameter FNT_W  = 4'd4, // Font width
+	parameter FNT_C  = 5'd16, // Font characters count
+	parameter ADDR_SIZE    = 4'd7, // Width of address bus for FONT ROM
 	
-	parameter PIX_W = 10, // Clock pulses per pixel
-	parameter PIX_H = 5, // Lines per pixel
+	parameter PIX_W = 3'd1, // Clock pulses per pixel
+	parameter PIX_H = 3'd1, // Lines per pixel
 	
 	// VGA parameters
-	parameter RES_H = 800, // Color pulses
-	parameter RES_V = 600, // Color lines
+	parameter RES_H = 11'd800, // Color pulses
+	parameter RES_V = 11'd600, // Color lines
 	
-	parameter BLK_HF = 40,  // Blank Front Porch
-	parameter BLK_HT = 128, // Blank Time
-	parameter BLK_HB = 88,  // Blank Back Porch
+	parameter BLK_HF = 11'd40,  // Blank Front Porch
+	parameter BLK_HT = 11'd128, // Blank Time
+	parameter BLK_HB = 11'd88,  // Blank Back Porch
 	
-	parameter BLK_VF = 1,   // Blank Front Porch
-	parameter BLK_VT = 4,   // Blank Time
-	parameter BLK_VB = 23   // Blank Back Porch
+	parameter BLK_VF = 11'd1,   // Blank Front Porch
+	parameter BLK_VT = 11'd4,   // Blank Time
+	parameter BLK_VB = 11'd23   // Blank Back Porch
 )(
 	input wire 			clk,
 	
@@ -50,7 +50,6 @@ typedef struct {
 	reg [3:0] subcol;
 } st_counters;
 
-st_counters fetch_counters = '{cnt_h: (FNT_W+1) * PIX_W, char: 1, default:0};
 st_counters draw_counters = '{default:0};
 
 
@@ -151,7 +150,7 @@ always @(negedge clk) begin
 	if(draw_counters.col == 0 && draw_counters.subcol == 0) begin
 		curr_line = rom_q;
 		if(draw_counters.row <= 2 || draw_counters.row > 6) begin
-			rom_addr = (draw_counters.row % 16) + draw_counters.lineoff;
+			rom_addr = (draw_counters.row[3:0]) + draw_counters.lineoff;
 		end else begin
 			if(draw_counters.char > 2 || draw_counters.char <= 6) begin
 				rom_addr = nums[draw_counters.row - 3][3 + 3 - draw_counters.char] + draw_counters.lineoff;

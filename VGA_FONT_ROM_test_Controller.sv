@@ -1,23 +1,23 @@
 module VGA_FONT_ROM_test_Controller # (
-	parameter FNT_H  = 6, // Font height
-	parameter FNT_W  = 4, // Font width
-	parameter FNT_C  = 16, // Font characters count
-	parameter ADDR_SIZE    = 7, // Width of address bus for FONT ROM
+	parameter FNT_H  = 4'd6, // Font height
+	parameter FNT_W  = 4'd4, // Font width
+	parameter FNT_C  = 5'd16, // Font characters count
+	parameter ADDR_SIZE    = 4'd7, // Width of address bus for FONT ROM
 	
-	parameter PIX_W = 10, // Clock pulses per pixel
-	parameter PIX_H = 5, // Lines per pixel
+	parameter PIX_W = 3'd1, // Clock pulses per pixel
+	parameter PIX_H = 3'd1, // Lines per pixel
 	
 	// VGA parameters
-	parameter RES_H = 800, // Color pulses
-	parameter RES_V = 600, // Color lines
+	parameter RES_H = 11'd800, // Color pulses
+	parameter RES_V = 11'd600, // Color lines
 	
-	parameter BLK_HF = 40,  // Blank Front Porch
-	parameter BLK_HT = 128, // Blank Time
-	parameter BLK_HB = 88,  // Blank Back Porch
+	parameter BLK_HF = 11'd40,  // Blank Front Porch
+	parameter BLK_HT = 11'd128, // Blank Time
+	parameter BLK_HB = 11'd88,  // Blank Back Porch
 	
-	parameter BLK_VF = 1,   // Blank Front Porch
-	parameter BLK_VT = 4,   // Blank Time
-	parameter BLK_VB = 23   // Blank Back Porch
+	parameter BLK_VF = 11'd1,   // Blank Front Porch
+	parameter BLK_VT = 11'd4,   // Blank Time
+	parameter BLK_VB = 11'd23   // Blank Back Porch
 )(
 	input wire 			clk,
 	
@@ -82,27 +82,29 @@ reg [21:0] circ_x2 = 0;
 reg [21:0] circ_y2 = 0;
 reg [21:0] circ_r2 = 0;
 
-reg hold_cnt_h = 0;
+reg is_blanking_h = 0;
+reg is_blanking_v = 0;
 
 always @(posedge clk) begin
 	
 	//// ADVANCE COUNTERS ////
 	
 	if(cnt.h == RES_H) begin // Czy skończyło się wyświetlanie lini
+		is_blanking_h = 1;
 		// Horizontal Reset
-		hold_cnt_h = 1;
-		cnt.char = -1;
+		cnt.char = ~11'd0;
 		cnt.fetch_char = 0;
 		cnt.col = 0;
 		cnt.subcol = 0;
 		
 		if(cnt.v == RES_V) begin // Czy skończył się wyświetlanie klatki
+			is_blanking_v = 1;
 			// Vertical Reset
 			cnt.row = 0;
 			cnt.line = 0;
 			cnt.lineoff = 0;
 			cnt.subline = 0;
-		end else begin
+		end else if (~is_blanking_v) begin
 			// Vertical Increment
 			cnt.subline = cnt.subline + 1'd1;
 			if(cnt.subline == PIX_H) begin
@@ -115,8 +117,8 @@ always @(posedge clk) begin
 					cnt.row = cnt.row + 1'd1;
 				end
 			end
-		end
-	end else if(~hold_cnt_h) begin
+		end		
+	end else if(~is_blanking_h) begin
 		// Horizontal Increment
 		cnt.subcol = cnt.subcol + 1'd1;
 		if(cnt.subcol == PIX_W) begin
@@ -133,10 +135,11 @@ always @(posedge clk) begin
 	cnt.h = cnt.h + 1'd1;
 	if(cnt.h == H_TIME_TOTAL) begin
 		cnt.h = 0;
-		hold_cnt_h = 0;
+		is_blanking_h = 0;
 		cnt.v = cnt.v + 1'd1;
 		if(cnt.v == V_TIME_TOTAL) begin
 			cnt.v = 0;
+			is_blanking_v = 0;
 		end
 	end
 	
@@ -146,7 +149,7 @@ always @(posedge clk) begin
 		curr_line = rom_q; // Przepisz poprzedni znak do buforu
 		if(cnt.row <= 2 || cnt.row > 6) begin //
 			//rom_addr = (cnt.fetch_char % 16) + cnt.lineoff;
-			rom_addr = (cnt.row % 16) + cnt.lineoff;
+			rom_addr = (cnt.char[3:0]) + cnt.lineoff;
 		end else begin
 			if(cnt.fetch_char > 2 || cnt.fetch_char <= 6) begin
 				rom_addr = nums[cnt.row - 3][3 + 3 - cnt.fetch_char] + cnt.lineoff;
@@ -173,65 +176,35 @@ always @(posedge clk) begin
 	end
 	
 	
-	if(nums[3][0][1:0] == 0) begin // Parabolokoło
-		circ_x = cnt.h - (50 + nums[0][2:1]);
-		circ_y = cnt.v - (50 + nums[1][2:1]);
-		circ_r = 4  + nums[2][2:1];
-		
+	circ_x = cnt.h - (11'd400 + nums[0][2:1]);
+	circ_y = cnt.v - (11'd300 + nums[1][2:1]);
+	circ_r = 11'd4  + nums[2][2:1];
+	
+	if(nums[3][0][1:0] == 2) begin // Parabolokoło
 		circ_x2 = circ_x * circ_x;
 		circ_y2 = circ_y * circ_y;
 		circ_r2 = circ_r * circ_r;
-		
 		if(circ_x2 + circ_y2 <= circ_r2) begin
 			color[1] = 1;
 		end
-	end else if (nums[3][0][1:0] == 1) begin // Fajerwerkoło
-		circ_x = cnt.h - (50 + nums[0][2:1]);
-		circ_y = cnt.v - (50 + nums[1][2:1]);
-		circ_r = 4  + nums[2][2:1];
-		
+	end else if (nums[3][0][1:0] == 0) begin // Fajerwerkoło		
 		circ_x2 = circ_x * circ_x;
 		circ_y2 = circ_y * circ_y;
 		circ_r2 = circ_r * circ_r;
-		
 		if(circ_x2[10:0] + circ_y2[10:0] <= circ_r2[10:0]) begin
 			color[1] = 1;
 		end
-	end else if (nums[3][0][1:0] == 2) begin // Fajerwerkoło ale inne
-	
-		circ_x = (50 + nums[0][2:1]);
-		circ_y = (50 + nums[1][2:1]);
-		circ_r = (4  + nums[2][2:1]);
-		
-		if((cnt.h - circ_x) * (cnt.h - circ_x) +
-			(cnt.v - circ_y) * (cnt.v - circ_y) <=
-			(circ_r) * (circ_r)) begin
-				color[1] = 1;
-		end
-	end else if (nums[3][0][1:0] == 3) begin // Kołokoło
-		if(cnt.h >= (50 + nums[0][2:1]))
-			circ_x = cnt.h - (50 + nums[0][2:1]);
-		else
-			circ_x = (50 + nums[0][2:1]) - cnt.h;
-			
-		if(cnt.v >= (50 + nums[1][2:1]))
-			circ_y = cnt.v - (50 + nums[1][2:1]);
-		else
-			circ_y = (50 + nums[1][2:1]) - cnt.v;
-			
-		circ_r = 4  + nums[2][2:1];
-		
+	end else if (nums[3][0][1:0] == 1) begin // Kołokoło
+		if(circ_x[10]) circ_x = ~circ_x + 1'd1;
+		if(circ_y[10]) circ_y = ~circ_y + 1'd1;
 		circ_x2 = circ_x * circ_x;
 		circ_y2 = circ_y * circ_y;
 		circ_r2 = circ_r * circ_r;
-		
 		if(circ_x2 + circ_y2 <= circ_r2) begin
 			color[1] = 1;
 		end
 	end
 
-	
-	
 	
 	
 //	if(draw_counters.char + 1 == fetch_counters.char) begin

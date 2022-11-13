@@ -149,7 +149,7 @@ always @(posedge CLK_PLL) begin
 			Vals[0][1:0] = font_test_curr_num;
 			Vals[1][3:0] = font_test_nums[font_test_curr_num][0];
 			Vals[2][3:0] = font_test_nums[font_test_curr_num][1];
-			Vals[3][1:0] = font_test_nums[font_test_curr_num][2];
+			Vals[3][1:0] = font_test_nums[font_test_curr_num][2][1:0];
 		end
 	endcase
 	

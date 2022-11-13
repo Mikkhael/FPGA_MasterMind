@@ -1,4 +1,5 @@
 
+-- mem_size_chars_used= 16
 -- mem_size_chars     = 16
 -- mem_size_word_bits = 4
 -- mem_size_words     = 80
@@ -29,7 +30,6 @@ ADDRESS_RADIX = HEX;
 DATA_RADIX = HEX;
 
 CONTENT BEGIN
---	0	: 0 1 2 3 4 5 6 7 8 9 A B C D E F;
 	0	: F 6 6 E 9 F 7 F F F 6 E 7 E F F;
 	10	: 9 A 9 1 9 8 8 1 9 9 9 9 8 9 8 8;
 	20	: 9 2 2 7 6 E E 2 F 7 F E 8 9 E E;

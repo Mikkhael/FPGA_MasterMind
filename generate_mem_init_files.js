@@ -122,6 +122,13 @@ const FONT_DATA = [
         '1...',
         '1...',
     ]],
+    // ['G', [
+    //     `.111`,
+    //     `1...`,
+    //     `1.11`,
+    //     '1..1',
+    //     '.111',
+    // ]],
 ];
 
 // CALCULATION
@@ -144,10 +151,7 @@ function validate(){
 
 function generate(){
 
-    const mem_size_chars = FONT_DATA.length;
-    const mem_size_word_bits = FONT_WIDTH;
-    const mem_size_words = FONT_HEIGHT * mem_size_chars;
-    const mem_size_bits =  FONT_WIDTH * mem_size_words;
+    const mem_size_chars_used = FONT_DATA.length;
 
     const font_help = FONT_DATA.map((x,i) => `--  \t${x[0]}\t: ${i.toString(16).toUpperCase()}\r\n`).join('');
 
@@ -158,12 +162,22 @@ function generate(){
         out_file_content_lines[i] = FONT_DATA.map(x => line_to_hex(x[1][i])).join(' ');
     }
 
+    let mem_size_chars = FONT_DATA.length;
+    if(!mem_size_chars.toString(2).match(/^10*$/)){
+        mem_size_chars = (1 << (mem_size_chars.toString(2).length));
+    }
+
+    const mem_size_word_bits = FONT_WIDTH;
+    const mem_size_words = FONT_HEIGHT * mem_size_chars;
+    const mem_size_bits =  FONT_WIDTH * mem_size_words;
+
 
 
     const out_file_content = out_file_content_lines.map((x,i) => `\t${(i * mem_size_chars).toString(16)}\t: ${out_file_content_lines[i]};\r\n`).join('');
 
     const out_file_data = 
 `
+-- mem_size_chars_used= ${mem_size_chars_used}
 -- mem_size_chars     = ${mem_size_chars}
 -- mem_size_word_bits = ${mem_size_word_bits}
 -- mem_size_words     = ${mem_size_words}
