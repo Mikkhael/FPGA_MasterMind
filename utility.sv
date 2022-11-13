@@ -74,4 +74,3 @@ always @(posedge clk) begin
 	last = in;
 end
 endmodule
-
