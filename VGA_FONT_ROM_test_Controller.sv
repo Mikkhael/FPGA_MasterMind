@@ -1,11 +1,11 @@
 module VGA_FONT_ROM_test_Controller # (
-	parameter FNT_H  = 4'd6, // Font height
+	parameter FNT_H  = 4'd5, // Font height
 	parameter FNT_W  = 4'd4, // Font width
-	parameter FNT_C  = 5'd16, // Font characters count
-	parameter ADDR_SIZE    = 4'd7, // Width of address bus for FONT ROM
+	parameter FNT_C  = 8'd64, // Font characters count
+	parameter ADDR_SIZE    = 5'd9, // Width of address bus for FONT ROM
 	
-	parameter PIX_W = 3'd1, // Clock pulses per pixel
-	parameter PIX_H = 3'd1, // Lines per pixel
+	parameter PIX_W = 3'd5, // Clock pulses per pixel
+	parameter PIX_H = 3'd5, // Lines per pixel
 	
 	// VGA parameters
 	parameter RES_H = 11'd800, // Color pulses
@@ -88,6 +88,7 @@ reg is_blanking_v = 0;
 always @(posedge clk) begin
 	
 	//// ADVANCE COUNTERS ////
+	
 	
 	if(cnt.h == RES_H) begin // Czy skończyło się wyświetlanie lini
 		is_blanking_h = 1;
@@ -173,6 +174,9 @@ always @(posedge clk) begin
 				color = curr_line[3 - (cnt.col)] ? ((cnt.row == curr_num + 3) ? 3'b101 : 3'b001) : 3'b000;
 			end
 		end
+	end
+	if(cnt.col == 0 && cnt.subcol == 0) begin
+		color[1] = 1;
 	end
 	
 	

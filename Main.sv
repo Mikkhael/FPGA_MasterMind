@@ -1,3 +1,5 @@
+//`include "game_state.vh"
+
 module Main(
 
 input wire CLK0,
@@ -71,25 +73,33 @@ assign ram_wdata_full = {1'b0, 1'b0, ram_wdata};
 
 VIDEORAM videoram(ram_wdata_full, ram_raddr, ram_rclk, ram_waddr, ram_wclk, ram_wen, ram_rdata);
 
-wire [6:0] font_rom_addr;
-wire       font_rom_clk;
+wire [8:0] font_rom_addr = display_type == 4 ? font_rom_addr2 : font_rom_addr1;
+wire       font_rom_clk = display_type == 4 ? font_rom_clk2 : font_rom_clk1;
 wire [3:0] font_rom_q;
 
-wire [6:0] font_rom2_addr;
-wire       font_rom2_clk;
-wire [3:0] font_rom2_q;
+wire [8:0] font_rom_addr1;
+wire       font_rom_clk1;
+wire [8:0] font_rom_addr2;
+wire       font_rom_clk2;
+
+
+
+//wire [6:0] font_rom2_addr;
+//wire       font_rom2_clk;
+//wire [3:0] font_rom2_q;
 
 reg [3:0][3:0] font_test_nums [0:3] = '{default: 0};
 reg [1:0]      font_test_curr_num = 0;
 
 FONT_ROM font_rom(font_rom_addr, font_rom_clk, font_rom_q);
-FONT_ROM_ASYNC font_rom2(font_rom2_addr, font_rom2_clk, font_rom2_q);
+//FONT_ROM_ASYNC font_rom2(font_rom2_addr, font_rom2_clk, font_rom2_q);
 
+st_GAME_STATE GS = '{default:0};
 
 
 reg [2:0] color = 3'b001;
 
-reg [2:0] display_type = 3;
+reg [2:0] display_type = 4;
 
 
 wire [4:0] vga_mux [0:4];
@@ -97,8 +107,9 @@ wire [4:0] vga_mux [0:4];
 VGA_Basic_Controller vga1(CLK_VGA, color, vga_mux[0][4:2], vga_mux[0][1], vga_mux[0][0]);
 VGA_Grid_Controller  vga2(CLK_VGA,        vga_mux[1][4:2], vga_mux[1][1], vga_mux[1][0]);
 VGA_RAM_Controller   vga3(CLK_VGA, ram_rclk, ram_raddr, ram_rdata, vga_mux[2][4:2], vga_mux[2][1], vga_mux[2][0]);
-VGA_FONT_ROM_test_Controller  vga4(CLK_VGA, font_rom_clk, font_rom_addr, font_rom_q, font_test_nums, font_test_curr_num, vga_mux[3][4:2], vga_mux[3][1], vga_mux[3][0]);
-VGA_FONT_ROM2_test_Controller vga5(CLK_VGA, font_rom2_clk, font_rom2_addr, font_rom2_q, font_test_nums, font_test_curr_num, vga_mux[4][4:2], vga_mux[4][1], vga_mux[4][0]);
+VGA_FONT_ROM_test_Controller  vga4(CLK_VGA, font_rom_clk1, font_rom_addr1, font_rom_q, font_test_nums, font_test_curr_num, vga_mux[3][4:2], vga_mux[3][1], vga_mux[3][0]);
+VGA_Game_Renderer  vga5(CLK_VGA, font_rom_clk2, font_rom_addr2, font_rom_q, GS, vga_mux[4][4:2], vga_mux[4][1], vga_mux[4][0]);
+//VGA_FONT_ROM2_test_Controller vga5(CLK_VGA, font_rom2_clk, font_rom2_addr, font_rom2_q, font_test_nums, font_test_curr_num, vga_mux[4][4:2], vga_mux[4][1], vga_mux[4][0]);
 
 
 assign {VGA_R, VGA_G, VGA_B, VGA_HSYNC, VGA_VSYNC} = vga_mux[display_type];
@@ -139,7 +150,7 @@ always @(posedge CLK_PLL) begin
 			Vals[2][3:0] = ram_wdata[3:0];
 			Vals[3][1:0] = ram_wdata[5:4];
 		end
-		3,4: begin
+		3: begin
 			if(S1_EDGE) begin
 				font_test_curr_num = font_test_curr_num + 1'h1;
 			end
@@ -150,6 +161,18 @@ always @(posedge CLK_PLL) begin
 			Vals[1][3:0] = font_test_nums[font_test_curr_num][0];
 			Vals[2][3:0] = font_test_nums[font_test_curr_num][1];
 			Vals[3][1:0] = font_test_nums[font_test_curr_num][2][1:0];
+		end
+		4: begin
+			if(S1_EDGE) begin
+				GS.options.color = GS.options.color + 1'd1;
+			end
+			if(S2_EDGE) begin
+				GS.main_menu.selected_element = GS.main_menu.selected_element + 1'd1;
+			end
+			Vals[0][3:0] = GS.main_menu.selected_element;
+			Vals[1][3:0] = GS.options.color;
+			Vals[2][3:0] = 0;
+			Vals[3][1:0] = GS.state_name;
 		end
 	endcase
 	

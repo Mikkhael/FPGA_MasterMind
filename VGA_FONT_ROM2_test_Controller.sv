@@ -1,7 +1,7 @@
 module VGA_FONT_ROM2_test_Controller # (
 	parameter FNT_H  = 4'd6, // Font height
 	parameter FNT_W  = 4'd4, // Font width
-	parameter FNT_C  = 5'd16, // Font characters count
+	parameter FNT_C  = 8'd64, // Font characters count
 	parameter ADDR_SIZE    = 4'd7, // Width of address bus for FONT ROM
 	
 	parameter PIX_W = 3'd1, // Clock pulses per pixel
