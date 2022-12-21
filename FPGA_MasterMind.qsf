@@ -78,8 +78,6 @@ set_location_assignment PIN_D16 -to DS4
 set_location_assignment PIN_B15 -to S2
 set_location_assignment PIN_B16 -to S1
 set_location_assignment PIN_L3 -to CLK0
-set_global_assignment -name SYSTEMVERILOG_FILE Tests/SegmentDisplay_tb.sv
-set_global_assignment -name SYSTEMVERILOG_FILE SegmentDisplay.sv
 set_global_assignment -name POWER_PRESET_COOLING_SOLUTION "23 MM HEAT SINK WITH 200 LFPM AIRFLOW"
 set_global_assignment -name POWER_BOARD_THERMAL_MODEL "NONE (CONSERVATIVE)"
 set_global_assignment -name EDA_TEST_BENCH_ENABLE_STATUS TEST_BENCH_MODE -section_id eda_simulation
@@ -87,27 +85,17 @@ set_global_assignment -name EDA_NATIVELINK_SIMULATION_TEST_BENCH VGA_Basic_Contr
 set_global_assignment -name EDA_TEST_BENCH_NAME SegmentDisplay -section_id eda_simulation
 set_global_assignment -name EDA_DESIGN_INSTANCE_NAME NA -section_id SegmentDisplay
 set_global_assignment -name EDA_TEST_BENCH_MODULE_NAME SegmentDisplay_tb -section_id SegmentDisplay
-set_global_assignment -name SYSTEMVERILOG_FILE Main.sv
-set_global_assignment -name SYSTEMVERILOG_FILE utility.sv
-set_global_assignment -name QIP_FILE PLL.qip
 set_location_assignment PIN_R1 -to VGA_R
 set_location_assignment PIN_J1 -to VGA_VSYNC
 set_location_assignment PIN_L1 -to VGA_HSYNC
 set_location_assignment PIN_M1 -to VGA_B
 set_location_assignment PIN_N1 -to VGA_G
-set_global_assignment -name SYSTEMVERILOG_FILE VGA_Basic_Controller.sv
-set_global_assignment -name SYSTEMVERILOG_FILE Tests/VGA_Basic_Controller_tb.sv
 set_global_assignment -name EDA_TEST_BENCH_NAME VGA_Basic_Controller -section_id eda_simulation
 set_global_assignment -name EDA_DESIGN_INSTANCE_NAME NA -section_id VGA_Basic_Controller
 set_global_assignment -name EDA_TEST_BENCH_MODULE_NAME VGA_Basic_Controller_tb -section_id VGA_Basic_Controller
 set_global_assignment -name EDA_TEST_BENCH_FILE Tests/SegmentDisplay_tb.sv -section_id SegmentDisplay -hdl_version SystemVerilog_2005
 set_global_assignment -name EDA_TEST_BENCH_FILE SegmentDisplay.sv -section_id SegmentDisplay -hdl_version SystemVerilog_2005
 set_global_assignment -name EDA_TEST_BENCH_FILE Tests/VGA_Basic_Controller_tb.sv -section_id VGA_Basic_Controller -hdl_version SystemVerilog_2005
-set_global_assignment -name SDC_FILE SDC.sdc
-set_global_assignment -name SYSTEMVERILOG_FILE VGA_Grid_Controller.sv
-set_global_assignment -name QIP_FILE VIDEORAM.qip
-set_global_assignment -name MIF_FILE ramtest1.mif
-set_global_assignment -name SYSTEMVERILOG_FILE VGA_RAM_Controller.sv
 set_global_assignment -name ENABLE_OCT_DONE OFF
 set_global_assignment -name EXTERNAL_FLASH_FALLBACK_ADDRESS 00000000
 set_global_assignment -name USE_CONFIGURATION_DEVICE OFF
@@ -117,17 +105,29 @@ set_global_assignment -name OUTPUT_IO_TIMING_NEAR_END_VMEAS "HALF VCCIO" -rise
 set_global_assignment -name OUTPUT_IO_TIMING_NEAR_END_VMEAS "HALF VCCIO" -fall
 set_global_assignment -name OUTPUT_IO_TIMING_FAR_END_VMEAS "HALF SIGNAL SWING" -rise
 set_global_assignment -name OUTPUT_IO_TIMING_FAR_END_VMEAS "HALF SIGNAL SWING" -fall
-set_global_assignment -name SYSTEMVERILOG_FILE RAM_LATENCY_TEST.sv
 set_location_assignment PIN_R15 -to S3
-set_global_assignment -name QIP_FILE FONT_ROM.qip
-set_global_assignment -name SYSTEMVERILOG_FILE VGA_FONT_ROM_test_Controller.sv
-set_global_assignment -name SYSTEMVERILOG_FILE VGA_FONT_ROM2_test_Controller.sv
-set_global_assignment -name QIP_FILE FONT_ROM_ASYNC.qip
-set_global_assignment -name SYSTEMVERILOG_FILE ROM_ASYNC_LATENCY_TEST.sv
 set_global_assignment -name PARTITION_NETLIST_TYPE SOURCE -section_id Top
 set_global_assignment -name PARTITION_FITTER_PRESERVATION_LEVEL PLACEMENT_AND_ROUTING -section_id Top
 set_global_assignment -name PARTITION_COLOR 16764057 -section_id Top
+set_global_assignment -name SYSTEMVERILOG_FILE common.sv
+set_global_assignment -name SYSTEMVERILOG_FILE utility.sv
+set_global_assignment -name SYSTEMVERILOG_FILE Main.sv
 set_global_assignment -name SYSTEMVERILOG_FILE VGA_Game_Renderer.sv
-set_global_assignment -name SYSTEMVERILOG_FILE game_state.sv
-set_global_assignment -name VERILOG_INCLUDE_FILE strings.vh
+set_global_assignment -name SYSTEMVERILOG_FILE VGA_Basic_Controller.sv
+set_global_assignment -name SYSTEMVERILOG_FILE VGA_Grid_Controller.sv
+set_global_assignment -name SYSTEMVERILOG_FILE VGA_RAM_Controller.sv
+set_global_assignment -name SYSTEMVERILOG_FILE VGA_FONT_ROM_test_Controller.sv
+set_global_assignment -name SYSTEMVERILOG_FILE VGA_FONT_ROM2_test_Controller.sv
+set_global_assignment -name QIP_FILE PLL.qip
+set_global_assignment -name QIP_FILE VIDEORAM.qip
+set_global_assignment -name QIP_FILE FONT_ROM.qip
+set_global_assignment -name QIP_FILE FONT_ROM_ASYNC.qip
+set_global_assignment -name SYSTEMVERILOG_FILE SegmentDisplay.sv
+set_global_assignment -name SYSTEMVERILOG_FILE RAM_LATENCY_TEST.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ROM_ASYNC_LATENCY_TEST.sv
+set_global_assignment -name SYSTEMVERILOG_FILE Tests/SegmentDisplay_tb.sv
+set_global_assignment -name SYSTEMVERILOG_FILE Tests/VGA_Basic_Controller_tb.sv
+set_global_assignment -name SDC_FILE SDC.sdc
+set_global_assignment -name MIF_FILE ramtest1.mif
+set_global_assignment -name VERILOG_INCLUDE_FILE generated_params.vh
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top

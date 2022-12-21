@@ -1,5 +1,3 @@
-//`include "game_state.vh"
-
 module Main(
 
 input wire CLK0,

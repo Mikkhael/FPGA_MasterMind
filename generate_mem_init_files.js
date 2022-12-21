@@ -1,12 +1,14 @@
-// Usage:
-// node generate_mem_init_files.js (output_file)
+// node generate_mem_init_files.js
+
+const MEM_INIT_FILENAME = 'font_mem_init.mif';
+const PARAMS_FILENAME = 'generated_params.vh';
 
 const fs = require('fs');
 
 // DATA
 
-const FONT_WIDTH = 4;
-const FONT_HEIGHT = 5;
+const WIDTH = 4;
+const HEIGHT = 5;
 
 
 const FONT_DATA = [
@@ -262,159 +264,224 @@ const FONT_DATA = [
         '11..',
         '1111',
     ]],
-    ['M1', [
-        `11..`,
-        `1.1.`,
-        `1..1`,
-        '1...',
-        '1...',
-    ]],
-    ['M2', [
-        `..11`,
-        `.1.1`,
-        `1..1`,
-        '...1',
-        '...1',
+    [' ', [
+        `....`,
+        `....`,
+        `....`,
+        '....',
+        '....',
     ]],
 ];
 
 
-// STRINGS
+const LONG_SPRITES_DATA = [
+    ['MM', [
+        `11....11`,
+        `1.1..1.1`,
+        `1..11..1`,
+        '1......1',
+        '11....11',
+    ]],
+    ['Mind', [
+        `1...1.1........1`,
+        `11.11..........1`,
+        `1.1.1.1.111..111`,
+        `1...1.1.1..1.1.1`,
+        `1...1.1.1..1.111`,
+    ]],
+];
 
+const S = str => str.split('');
 const STRINGS = [
-    ['TITLE',  ['M1', 'M2', '.ASTER', 'M1', 'M2', '.IND']],
+    ['TITLE', ['MM', ...S('ASTER'), 'Mind']],
     ['OPTS', 'OPTIONS'],
     ['TEST'],
 ];
 
+function main(){
+    
 
-function generate_strings_inds(){
-    const font = {};
-    for(let i=0; i<FONT_DATA.length; i++){
-        font[FONT_DATA[i][0]] = i;
+// VALIDATE
+
+for(let [name, data] of FONT_DATA){
+    if(data.length != HEIGHT){
+        console.error('INVALID FONT HEIGHT', name, data.length, data);
+        return false;
     }
+    for(let row of data){
+        if(row.length != WIDTH){
+            console.error('INVALID FONT WIDTH', name, row.length, row);
+            return false;
+        }
+    }
+}
 
-    const res = {};
+for(let i = 0; i < LONG_SPRITES_DATA.length; i++){
+    let [name, data] = LONG_SPRITES_DATA[i];
+    if(data.length != HEIGHT){
+        console.error('INVALID FONT HEIGHT', name, data.length, data);
+        return false;
+    }
+    const full_width = data[0].length;
+    if((full_width % WIDTH) !== 0){
+        console.error('INVALID FONT WIDTH', name, full_width, data);
+        return false;
+    }
+    for(let row of data){
+        if(row.length != full_width){
+            console.error('INVALID FONT WIDTH', name, row.length, row);
+            return false;
+        }
+    }
+}
 
-    for(let [name, value] of STRINGS){
-        if(value === undefined){
-            value = name;
-        }
-        if(typeof(value) == 'string'){
-            value = value.split('');
-        }
-        let chars = [];
-        for(let i=0; i<value.length; i++){
-            if(value[i].length > 0 && value[i][0] == '.'){
-                chars = [...chars, ...value[i].slice(1).split('')];
-            }else{
-                chars.push(value[i]);
-            }
-        }
-        let inds = [];
-        for(let i=0; i<chars.length; i++){
-            let ind = font[chars[i]];
-            if(ind === undefined){
-                console.error("ERROR WITH STRINGS", name, value, chars, i);
-            }
-            inds.push(ind);
-        }
 
-        res[name] = inds;
+
+// GENERATE LOOKUPS
+
+const FONT_COUNT = FONT_DATA.length;
+const LONG_SPRITES_COUNT = LONG_SPRITES_DATA.length;
+
+function convert_to_lookup_object(arr){
+    let res = {};
+    let acc = 0;
+    for(let i=0; i<arr.length; i++){
+        const len = arr[i][1][0].length / WIDTH;
+        res[arr[i][0]] = {off: acc, data: arr[1], len};
+        arr[i][2] = acc;
+        arr[i][3] = len;
+        acc += len;
+    }
+    return [res, acc];
+}
+
+const [FONT_LOOKUP, FONT_ROW_WORDS_COUNT] = convert_to_lookup_object(FONT_DATA);
+const [LONG_SPRITES_LOOKUP, LONG_SPRITES_ROW_WORDS_COUNT] = convert_to_lookup_object(LONG_SPRITES_DATA);
+
+const ALL_CHARS_DATA = [...FONT_DATA, ...LONG_SPRITES_DATA];
+
+// GENERATE MEM INIT
+
+function split_by_width(str){
+    let splits = Math.floor(str.length / WIDTH);
+    let res = [];
+    for(let i=0; i<splits; i++){
+        res.push(str.slice(i * WIDTH, (i+1) * WIDTH));
     }
     return res;
 }
-let W = 0;
-function generate_string_parameters(){
-    const strs = generate_strings_inds(W);
+function get_min_width(num){
+    if(num < 0) num = 0;
+    const bin = num.toString(2);
+    return bin.length;
+}
+function next_power(num) {
+    return 1 << (get_min_width(num-1));
+}
+const to_word_str = (line) => line.split('').map(x => x !== '1' ? '0' : '1').join('');
 
+const memory_row_words_count_used = FONT_ROW_WORDS_COUNT + LONG_SPRITES_ROW_WORDS_COUNT;
+const memory_row_words_count = next_power(memory_row_words_count_used);
 
-    return Object.entries(strs).map(str => 
-        `parameter STR_${str[0]}_LEN = ${str[1].length};\r\n` +
-        `parameter logic [${W-1}:0] STR_${str[0]} [${str[1].length}] = '{${str[1].join(',')}};\r\n`
-    ).join('');
+const memory_words_count_used = memory_row_words_count * HEIGHT;
+const memory_words_count = next_power(memory_words_count_used);
+const memory_addr_width = get_min_width(memory_words_count-1);
+
+let mem_file_content_lines = [];
+for(let i = 0; i<HEIGHT; i++){
+    mem_file_content_lines[i] = ALL_CHARS_DATA.map(
+        char => split_by_width(char[1][i]).map(
+            word => to_word_str(word)
+        ).join(' ')
+    );
+    mem_file_content_lines[i].push(Array(memory_row_words_count - memory_row_words_count_used).fill('0000').join(' '));
+    mem_file_content_lines[i] = mem_file_content_lines[i].join(' ');
 }
 
+const mem_file_content = mem_file_content_lines.map(
+    (x,i) => `\t${(i * memory_row_words_count).toString(16)}\t: ${mem_file_content_lines[i]};\r\n`
+).join('');
 
-// CALCULATION
-
-function validate(){
-    for(let [char_name, char_data] of FONT_DATA){
-        if(char_data.length !== FONT_HEIGHT){
-            console.log('Invalid font height for char: ', char_name);
-            return false;
-        }
-        for(let char_line_data of char_data){
-            if(char_line_data.length !== FONT_WIDTH){
-                console.log('Invalid font width for char: ', char_name);
-                return false;
-            }
-        }
-    }
-    return true;
-}
-
-function generate(){
-
-    const mem_size_chars_used = FONT_DATA.length;
-
-    const font_help = FONT_DATA.map((x,i) => `--  \t${x[0]}\t: ${i.toString(16).toUpperCase()}\r\n`).join('');
-
-    // const line_to_hex = (line) => parseInt(line.split('').map(x => x !== '1' ? '0' : '1').join(''),2).toString(16);
-    const line_to_hex = (line) => line.split('').map(x => x !== '1' ? '0' : '1').join('');
-
-    let out_file_content_lines = [];
-    for(let i = 0; i<FONT_HEIGHT; i++){
-        out_file_content_lines[i] = FONT_DATA.map(x => line_to_hex(x[1][i])).join(' ');
-    }
-
-    let mem_size_chars = FONT_DATA.length;
-    if(!mem_size_chars.toString(2).match(/^10*$/)){
-        mem_size_chars = (1 << (mem_size_chars.toString(2).length));
-    }
-
-    const mem_size_word_bits = FONT_WIDTH;
-    const mem_size_words = FONT_HEIGHT * mem_size_chars;
-    const mem_size_bits =  FONT_WIDTH * mem_size_words;
-
-    W = mem_size_chars.toString(2).length-1;
-
-    const out_file_content = out_file_content_lines.map((x,i) => `\t${(i * mem_size_chars).toString(16)}\t: ${out_file_content_lines[i]};\r\n`).join('');
-
-    const out_file_data = 
+const mem_file_data = 
 `
--- mem_size_chars_used= ${mem_size_chars_used}
--- mem_size_chars     = ${mem_size_chars} (2^${W})
--- mem_size_word_bits = ${mem_size_word_bits}
--- mem_size_words     = ${mem_size_words}
--- mem_size_bits      = ${mem_size_bits}
+-- font_chars_count         = ${FONT_COUNT}
+-- long_sprites_count       = ${LONG_SPRITES_COUNT}
+-- long_sprites_chars_count = ${LONG_SPRITES_ROW_WORDS_COUNT}
+-- words_per_row_used       = ${memory_row_words_count_used}
+-- words_per_row_total      = ${memory_row_words_count} (2^${get_min_width(memory_row_words_count-1)})
+-- words_used               = ${memory_words_count_used}
+-- words_total              = ${memory_words_count} (2^${memory_addr_width-1})
+-- bits_total               = ${memory_words_count * WIDTH}
 
--- FONT offsets
-${font_help}
-
-WIDTH = ${mem_size_word_bits};
-DEPTH = ${mem_size_words};
+WIDTH = ${WIDTH};
+DEPTH = ${memory_words_count};
 ADDRESS_RADIX = HEX;
 DATA_RADIX = BIN;
 
 CONTENT BEGIN
-${out_file_content.toUpperCase()}
+${mem_file_content.toUpperCase()}
 END;
 
 `;
 
-    return out_file_data;
+
+// STRINGS
+
+function string_to_inds(string){
+    let [name, labels] = string;
+    if(labels === undefined){
+        labels = name;
+    }
+    if(typeof(labels) === "string"){
+        labels = labels.split('');
+    }
+    let inds = labels.map(label => {
+        if(FONT_LOOKUP[label]){
+            return [FONT_LOOKUP[label].off];
+        }
+        if(LONG_SPRITES_LOOKUP[label]){
+            let spr = LONG_SPRITES_LOOKUP[label];
+            let res = [];
+            for(let i=0; i<spr.len; i++){
+                res.push(spr.off + i + FONT_COUNT);
+            }
+            return res;
+        }
+        console.error('NOT FOUND STRING LABEL: ', label);
+        return [0];
+    });
+
+    return inds.flat();
 }
 
-function write(data, params_data){
-    const filename = process.argv[2] || 'font_mem_init.mif';
-    fs.writeFileSync(filename, data);
-    fs.writeFileSync('strings.vh', params_data);
+const STRINGS_INDS = STRINGS.map(string => {return {name: string[0], inds: string_to_inds(string)} });
+
+/// PARAMETERS
+
+const W = (val, w) => `${w === undefined ? get_min_width(val) : w}'d${val}`;
+
+const simple_params = [
+    ['ADDR_W', memory_addr_width],
+    ['FONT_H', HEIGHT],
+    ['FONT_W', WIDTH],
+    ['FONT_CHARS', FONT_COUNT],
+    ['FONT_LINEOFF', memory_row_words_count],
+    ['FONT_LINESHIFT', get_min_width(memory_row_words_count-1)],
+    ...FONT_DATA.map(([name, data, off, len]) => [`CHAR_${name}`, off]),
+    ...LONG_SPRITES_DATA.map(([name, data, off, len]) => [`LSPRITE_${name}_LEN`, len]),
+    ...LONG_SPRITES_DATA.map(([name, data, off, len]) => [`LSPRITE_${name}`, off + FONT_COUNT]),
+    ...STRINGS_INDS.map(({name, inds}) => [`STR_${name}_LEN`, inds.length]),
+].map(([name, val, w]) => `parameter ${name} = ${W(val, w)};\r\n`).join('');
+
+const strings_params = STRINGS_INDS.map(({name, inds}) => `parameter logic [${memory_addr_width-1}:0] STR_${name} [${inds.length}] = '{${inds.join(',')}};\r\n`).join('');
+const params_file_data = simple_params + strings_params;
+
+/// WRITE
+
+
+fs.writeFileSync(MEM_INIT_FILENAME, mem_file_data);
+fs.writeFileSync(PARAMS_FILENAME, params_file_data);
 
 }
 
-if(validate()){
-    const data = generate();
-    const params_data = generate_string_parameters();
-    write(data, params_data);
-}
+main();
