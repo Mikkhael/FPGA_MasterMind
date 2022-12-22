@@ -162,13 +162,13 @@ always @(posedge CLK_PLL) begin
 		end
 		4: begin
 			if(S1_EDGE) begin
-				GS.options.color = GS.options.color + 1'd1;
+				GS.options.palette_id = GS.options.palette_id + 1'd1;
 			end
 			if(S2_EDGE) begin
-				GS.main_menu.selected_element = GS.main_menu.selected_element + 1'd1;
+				GS.navigation.selected_element = GS.navigation.selected_element + 1'd1;
 			end
-			Vals[0][3:0] = GS.main_menu.selected_element;
-			Vals[1][3:0] = GS.options.color;
+			Vals[0][3:0] = GS.navigation.selected_element;
+			Vals[1][3:0] = GS.options.palette_id;
 			Vals[2][3:0] = 0;
 			Vals[3][1:0] = GS.state_name;
 		end

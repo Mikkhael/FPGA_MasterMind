@@ -1,7 +1,4 @@
-module VGA_Game_Renderer # (
-	parameter PIX_W = 3'd5, // Clock pulses per pixel
-	parameter PIX_H = 3'd5 // Lines per pixel
-)(
+module VGA_Game_Renderer(
 	input wire 			clk,
 	
 	output wire 		rom_clk, 
@@ -32,12 +29,14 @@ typedef struct{
 	reg [4:0] subline;
 	reg [10:0] line;
 	
-	reg [10:0] fontline;
+	reg [ADDR_W-1:0] fontline;
 	
 	reg [10:0] charline;
 } st_counters_v;
 
 st_counters_h cnth       = '{default: 0, val: (H_TIME_TOTAL - 4), blanking: 1};
+st_counters_h temp_cnth1 = '{default: 0, val: (H_TIME_TOTAL - 3), blanking: 1};
+st_counters_h temp_cnth2 = '{default: 0, val: (H_TIME_TOTAL - 2), blanking: 1};
 st_counters_h cnth_fetch = '{default: 0, val: (H_TIME_TOTAL - 1), blanking: 1};
 st_counters_v cntv       = '{default: 0};
 
@@ -59,25 +58,22 @@ task automatic advance_counters_h(ref st_GAME_STATE GS, ref st_counters_h cnth);
 		cnth.subcol = 0;
 		cnth.col = 0;
 		cnth.fontcol = 0;
-		cnth.charcol = -1;
+		cnth.charcol = -11'd1;
 		
 	end else if(~cnth.blanking) begin // Czy jesteśmy w sekcji kolorowego obrazu
 		// Increment
-		cnth.subcol = cnth.subcol + 1'd1;
-		if(cnth.subcol == PIX_W) begin
+		if(++cnth.subcol == GS.options.PIX_W) begin
 			cnth.subcol = 0;
-			cnth.col = cnth.col + 1'd1;
+			++cnth.col;
 			// Advance displayed font pixel
-			cnth.fontcol = cnth.fontcol + 1'd1;
-			if(cnth.fontcol == FONT_W + 1) begin
+			if(++cnth.fontcol == FONT_W + 1) begin
 				cnth.fontcol = 0;
-				cnth.charcol = cnth.charcol + 1'd1;
+				++cnth.charcol;
 			end
 		end
 	end
 	
-	cnth.val = cnth.val + 1'd1;
-	if(cnth.val == H_TIME_TOTAL) begin
+	if(++cnth.val == H_TIME_TOTAL) begin
 		cnth.val = 0;
 		cnth.blanking = 0;
 	end
@@ -97,21 +93,18 @@ task automatic advance_counters_v(ref st_GAME_STATE GS, ref st_counters_v cntv);
 		
 	end else if(~cnth.blanking) begin // Czy jesteśmy w sekcji kolorowego obrazu
 		// Increment
-		cntv.subline = cntv.subline + 1'd1;
-		if(cntv.subline == PIX_H) begin
+		if(++cntv.subline == GS.options.PIX_H) begin
 			cntv.subline = 0;
-			cntv.line = cntv.line + 1'd1;
+			++cntv.line;
 			// Advance displayed font pixel
-			cntv.fontline = cntv.fontline + 1'd1;
-			if(cntv.fontline == FONT_H + 1) begin
+			if(++cntv.fontline == FONT_H + 1) begin
 				cntv.fontline = 0;
-				cntv.charline = cntv.charline + 1'd1;
+				++cntv.charline;
 			end
 		end
 	end
 	
-	cntv.val = cntv.val + 1'd1;
-	if(cntv.val == V_TIME_TOTAL) begin
+	if(++cntv.val == V_TIME_TOTAL) begin
 		cntv.val = 0;
 		cntv.blanking = 0;
 	end
@@ -119,13 +112,17 @@ task automatic advance_counters_v(ref st_GAME_STATE GS, ref st_counters_v cntv);
 endtask
 
 reg [10:0] off_fetch_char = 0;
-
+reg is_selected = 0;
+reg is_bg = 0;
 
 always @(posedge clk) begin
 	
 	//// ADVANCE COUNTERS ////
 	
-	advance_counters_h(GS, cnth);
+	cnth = temp_cnth1;
+	temp_cnth1 = temp_cnth2;
+	temp_cnth2 = cnth_fetch;
+	//advance_counters_h(GS, cnth);
 	advance_counters_h(GS, cnth_fetch);
 	
 	if(cnth.val == RES_H) begin // Jeśli skończyliśmy rysować linię
@@ -136,22 +133,13 @@ always @(posedge clk) begin
 	//// FETCH ////
 	
 	// TODO : TO IMPROVE
-//	if(cnth_fetch.col == 0 && cnth_fetch.subcol == 0) begin // Czy zaczął się nowy znak
-//		off_fetch_char = cnth_fetch.charcol - 2'd2 - (GS.main_menu.selected_element + 10'd2 == cntv.charline);
-//		case(cntv.charline)
-//			2: if(off_fetch_char < STR_TITLE_LEN)	rom_addr = STR_TITLE[off_fetch_char]	+ (cntv.fontline << FONT_LINESHIFT);
-//			3: if(off_fetch_char < STR_OPTS_LEN)	rom_addr = STR_OPTS[off_fetch_char]		+ (cntv.fontline << FONT_LINESHIFT);
-//			5: if(off_fetch_char < STR_TEST_LEN)	rom_addr = STR_TEST[off_fetch_char]		+ (cntv.fontline << FONT_LINESHIFT);
-//			default: rom_addr = 320;
-//		endcase
-//	end
 	
 	if(cnth_fetch.fontcol == 0 && cnth_fetch.subcol == 0) begin
-		off_fetch_char = cnth_fetch.charcol >= 2'd2 ? (cnth_fetch.charcol - 2'd2) : (400) ;
+		off_fetch_char = cnth_fetch.charcol >= 2'd2 ? (cnth_fetch.charcol - 2'd2) : (-11'd1) ;
 		case(cntv.charline)
 			2: rom_addr = (off_fetch_char < STR_TITLE_LEN) ? (STR_TITLE[off_fetch_char] + (cntv.fontline << FONT_LINESHIFT)) : CHAR_;
-			3: rom_addr = (off_fetch_char < STR_OPTS_LEN)  ? (STR_OPTS[off_fetch_char]  + (cntv.fontline << FONT_LINESHIFT)) : CHAR_;
-			5: rom_addr = (off_fetch_char < STR_TEST_LEN)  ? (STR_TEST[off_fetch_char]	 + (cntv.fontline << FONT_LINESHIFT)) : CHAR_;
+			3: rom_addr = (off_fetch_char < STR_OPTIONS_LEN)  ? (STR_OPTIONS[off_fetch_char]  + (cntv.fontline << FONT_LINESHIFT)) : CHAR_;
+			5: rom_addr = (off_fetch_char < STR_HIGHSCORES_LEN)  ? (STR_HIGHSCORES[off_fetch_char]	 + (cntv.fontline << FONT_LINESHIFT)) : CHAR_;
 			default: rom_addr = CHAR_;
 		endcase
 	end
@@ -160,11 +148,10 @@ always @(posedge clk) begin
 	
 	//// DRAW ////
 	
-	color =  (GS.main_menu.selected_element + 10'd2 == cntv.charline) ? (GS.options.color + 3'd2) : (GS.options.color + 3'd1);
-	if(cntv.fontline != FONT_H && cnth.fontcol != FONT_W) begin
-		color = rom_q[3 - (cnth.fontcol)] ? GS.options.color : color;
-	end
-	
+	is_selected = (GS.navigation.selected_element + 10'd2 == cntv.charline) && (cntv.fontline != FONT_H);
+	is_bg = (cntv.fontline == FONT_H || cnth.fontcol == FONT_W) || (~rom_q[FONT_W - 1 - (cnth.fontcol)]);
+	color = is_bg ? (is_selected ? GS.render.palette.selected_bg : GS.render.palette.bg) : (is_selected ? GS.render.palette.selected : GS.render.palette.text);
+
 end
 
 

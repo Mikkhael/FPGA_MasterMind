@@ -25,19 +25,68 @@ typedef enum logic [1:0] {GS_MAIN_MENU, GS_OPTIONS} GAME_STATE_NAME;
 
 parameter GS_MAIN_MENU_ELEMENTS = 3;
 
+
+// [Main Menu]
+// Start Game = 0
+// Options = 1
+// Highscores = 2
+
 typedef struct {
-	reg [1:0] selected_element;
-} st_GS_MAIN_MENU;
+	reg [3:0] selected_element;
+	
+} st_GS_NAVIGATION;
 
 
 typedef struct {
-	reg [2:0] color;
+	reg [4:0] PIX_W;
+	reg [4:0] PIX_H;
+	reg [2:0] palette_id;
 } st_GS_OPTIONS;
 
 typedef struct {
+	reg [2:0] text;
+	reg [2:0] bg;
+	reg [2:0] selected;
+	reg [2:0] selected_bg;
+} st_GS_PALETTE;
+
+typedef struct {
+	reg [7:0] charlines;
+	reg [7:0] charcols;
+	// Options Menu
+	reg [7:0] menu_charlines_offset_selected;
+	reg [7:0] menu_charlines_offset;
+	reg [7:0] menu_charcols_offset_selected;
+	reg [7:0] menu_charcols_offset;
+	// Palette
+	st_GS_PALETTE palette;
+} st_GS_RENDER;
+
+typedef struct {
 	GAME_STATE_NAME 	state_name;
-	st_GS_MAIN_MENU	main_menu;
+	st_GS_NAVIGATION	navigation;
 	st_GS_OPTIONS	 	options;
+	st_GS_RENDER      render;
 } st_GAME_STATE;
 
+
+// PALETTES
+
+parameter reg [2:0] palettes_count = 2'd3;
+parameter st_GS_PALETTE palettes [0:2] = '{ '{
+	text          : 3'b111,
+	bg            : 3'b000,
+	selected      : 3'b100,
+	selected_bg   : 3'b001
+}, '{
+	text          : 3'b111,
+	bg            : 3'b000,
+	selected      : 3'b000,
+	selected_bg   : 3'b100
+}, '{
+	text          : 3'b010,
+	bg            : 3'b101,
+	selected      : 3'b000,
+	selected_bg   : 3'b111
+}};
 

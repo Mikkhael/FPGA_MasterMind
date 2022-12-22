@@ -271,6 +271,20 @@ const FONT_DATA = [
         '....',
         '....',
     ]],
+    ['ArrowR', [
+        `11..`,
+        `.11.`,
+        `..11`,
+        '.11.',
+        '11..',
+    ]],
+    ['ArrowL', [
+        `..11`,
+        `.11.`,
+        `11..`,
+        '.11.',
+        '..11',
+    ]],
 ];
 
 
@@ -294,8 +308,14 @@ const LONG_SPRITES_DATA = [
 const S = str => str.split('');
 const STRINGS = [
     ['TITLE', ['MM', ...S('ASTER'), 'Mind']],
-    ['OPTS', 'OPTIONS'],
-    ['TEST'],
+    ['OPTIONS'],
+    ['HIGHSCORES'],
+
+    ['BACK', ['ArrowL', 'ArrowL', ...S(' BACK '), 'ArrowL', 'ArrowL']],
+
+    ['PIXEL WIDTH '],
+    ['PIXEL HEIGHT'],
+    ['PALETTE'],
 ];
 
 function main(){
@@ -454,7 +474,7 @@ function string_to_inds(string){
     return inds.flat();
 }
 
-const STRINGS_INDS = STRINGS.map(string => {return {name: string[0], inds: string_to_inds(string)} });
+const STRINGS_INDS = STRINGS.map(string => {return {name: string[0].replace(/ /g, ''), inds: string_to_inds(string)} });
 
 /// PARAMETERS
 

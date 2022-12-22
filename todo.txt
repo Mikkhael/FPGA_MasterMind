@@ -1,0 +1,4 @@
+- remove unwanted seperations between chars
+- complate menus layout
+- change pixels width dynamically
+- add macros/functions for strings display  
