@@ -307,7 +307,7 @@ const LONG_SPRITES_DATA = [
 
 const S = str => str.split('');
 const STRINGS = [
-    ['TITLE', ['MM', ...S('ASTER'), 'Mind']],
+    ['TITLE', ['MM', ...S('ASTER'), 'Mind'], true],
     ['OPTIONS'],
     ['HIGHSCORES'],
 
@@ -473,8 +473,34 @@ function string_to_inds(string){
 
     return inds.flat();
 }
+function string_to_mask(string){
+    let [name, labels] = string;
+    if(labels === undefined){
+        labels = name;
+    }
+    if(typeof(labels) === "string"){
+        labels = labels.split('');
+    }
+    let mask = labels.map(label => {
+        if(FONT_LOOKUP[label]){
+            return [0];
+        }
+        if(LONG_SPRITES_LOOKUP[label]){
+            let spr = LONG_SPRITES_LOOKUP[label];
+            let res = [];
+            for(let i=0; i<spr.len-1; i++){
+                res.push(1);
+            }
+            return [...Array(spr.len-1).fill(1), 0];
+        }
+        console.error('NOT FOUND STRING LABEL: ', label);
+        return [0];
+    });
 
-const STRINGS_INDS = STRINGS.map(string => {return {name: string[0].replace(/ /g, ''), inds: string_to_inds(string)} });
+    return mask.flat();
+}
+
+const STRINGS_INDS = STRINGS.map(string => {return {name: string[0].replace(/ /g, ''), inds: string_to_inds(string), mask: string_to_mask(string)} });
 
 /// PARAMETERS
 
@@ -493,8 +519,9 @@ const simple_params = [
     ...STRINGS_INDS.map(({name, inds}) => [`STR_${name}_LEN`, inds.length]),
 ].map(([name, val, w]) => `parameter ${name} = ${W(val, w)};\r\n`).join('');
 
-const strings_params = STRINGS_INDS.map(({name, inds}) => `parameter logic [${memory_addr_width-1}:0] STR_${name} [${inds.length}] = '{${inds.join(',')}};\r\n`).join('');
-const params_file_data = simple_params + strings_params;
+const strings_params      = STRINGS_INDS.map(({name, inds}) => `parameter logic [${memory_addr_width-1}:0] STR_${name} [${inds.length}] = '{${inds.join(',')}};\r\n`).join('');
+const strings_mask_params = STRINGS_INDS.map(({name, mask}) => `parameter logic STR_MASK_${name} [${mask.length}] = '{${mask.join(',')}};\r\n`).join('');
+const params_file_data = simple_params + strings_params + strings_mask_params;
 
 /// WRITE
 
