@@ -1,0 +1,24 @@
+
+### Main Menu ###
+
+	^ title_v_offset
+   <title_h_off> MASTERMind [bigger font]
+	^ menu_elements_v_offset
+	<title_h_off> PLAY
+	<title_h_off> OPTIONS
+	<title_h_off> HIGHSCORES
+	
+
+### OPTIONS ###
+
+	...
+ ^ selected_option_v_offset
+ <selected(?)_option_h_offset> ...
+ 
+Lista opcji:
+
+	PIXEL WIDTH  : [number 1 - 10]
+	PIXEL HEIGHT : [number 1 - 10]
+	PALETTE		 : [number 1 - palettes_count]
+
+

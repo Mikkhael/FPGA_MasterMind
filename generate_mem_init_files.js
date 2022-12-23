@@ -308,6 +308,7 @@ const LONG_SPRITES_DATA = [
 const S = str => str.split('');
 const STRINGS = [
     ['TITLE', ['MM', ...S('ASTER'), 'Mind'], true],
+    ['PLAY'],
     ['OPTIONS'],
     ['HIGHSCORES'],
 

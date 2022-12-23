@@ -1,4 +1,23 @@
 + remove unwanted seperations between chars
 - complate menus layout
-- change pixels width dynamically
+	+ main manu
+	- options
+	- controls
++ change pixels width dynamically
 + add macros/functions for strings display  
+- randomness
+	- algorithm
+	- title
+- preety background
+- remove warnings with overflow
+- fix bug with incorect resizing (when in options with big pixels)
+
+- buttons
+- game 
+
+
+- hdmi
+
+- highscores
+
+- SDcard

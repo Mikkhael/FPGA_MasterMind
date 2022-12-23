@@ -1,6 +1,5 @@
 `include "generated_params.vh"
 
-
 	
 //// VGA Timings ////
 
@@ -51,13 +50,17 @@ typedef struct {
 } st_GS_PALETTE;
 
 typedef struct {
-	reg [7:0] charlines;
-	reg [7:0] charcols;
+	reg values_updated;
+	reg [10:0] charlines;
+	reg [10:0] charcols;
+	// Main Menu
+	reg [10:0] title_subcols_offset;
+	reg [10:0] title_charlines_offset;
+	reg [10:0] title_menu_charlines_offset;
 	// Options Menu
-	reg [7:0] menu_charlines_offset_selected;
-	reg [7:0] menu_charlines_offset;
-	reg [7:0] menu_charcols_offset_selected;
-	reg [7:0] menu_charcols_offset;
+	reg [10:0] options_charlines_offset_selected;
+	reg [10:0] options_add_subcols_offset_selected;
+	reg [10:0] options_charcols_offset;
 	// Palette
 	st_GS_PALETTE palette;
 } st_GS_RENDER;
@@ -90,3 +93,8 @@ parameter st_GS_PALETTE palettes [0:2] = '{ '{
 	selected_bg   : 3'b111
 }};
 
+
+// Constants
+
+parameter reg [7:0] title_menu_charlines_offset_add = 3;
+parameter reg [4:0] title_pixel_size_add = 4;
