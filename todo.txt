@@ -1,7 +1,7 @@
 + remove unwanted seperations between chars
 - complate menus layout
 	+ main manu
-	- options
+	+ options
 	- controls
 + change pixels width dynamically
 + add macros/functions for strings display  
@@ -9,12 +9,17 @@
 	- algorithm
 	- title
 - preety background
-- remove warnings with overflow
-- fix bug with incorect resizing (when in options with big pixels)
++ remove warnings with overflow
+? fix bug with incorect resizing (when in options with big pixels)
 
 - buttons
 - game 
 
+
+- make more advanced options
+	- vga / hdmi parameters
+	- resolutions (dynamic pixel sizes)
+	
 
 - hdmi
 

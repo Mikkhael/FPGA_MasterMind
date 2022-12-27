@@ -1,3 +1,5 @@
+
+
 module Main_Game(
 
 input wire CLK0,
@@ -74,7 +76,14 @@ st_GAME_STATE GS = '{default:0,
 	}
 };
 
-VGA_Game_Renderer vga(CLK_VGA, font_rom_clk, font_rom_addr, font_rom_q, GS, {VGA_R, VGA_G, VGA_B}, VGA_HSYNC, VGA_VSYNC);
+st_GS_DECIMALIZED GS_decim;
+GS_DECIMALIZER GS_decimalizer(GS, GS_decim);
+
+//DIV_MOD dm1(GS.options.PIX_W. r1, r2);
+//DIV_MOD dm2(GS.options.PIX_H. r3, r4);
+
+
+VGA_Game_Renderer vga(CLK_VGA, font_rom_clk, font_rom_addr, font_rom_q, GS, GS_decim, {VGA_R, VGA_G, VGA_B}, VGA_HSYNC, VGA_VSYNC);
 
 always @(posedge CLK_PLL) begin
 	
@@ -83,11 +92,13 @@ always @(posedge CLK_PLL) begin
 		GS.render.charlines = RES_V / (GS.options.PIX_H * (FONT_H+1'd1));
 		GS.render.charcols  = RES_H / (GS.options.PIX_W * (FONT_W+1'd1));
 		
+		// Title Menu
+		
 		//GS.render.title_subcols_offset = 200;
 		//GS.render.title_charlines_offset = 4;
 		//GS.render.title_menu_charlines_offset = 7;
 		
-		GS.render.title_subcols_offset = ((RES_H - STR_TITLE_LEN * (FONT_W+1) * (GS.options.PIX_H + title_pixel_size_add)) >> 1);
+		GS.render.title_subcols_offset = ((RES_H - STR_TITLE_LEN * (FONT_W+1'd1) * (GS.options.PIX_W + title_pixel_size_add)) >> 1);
 		if(GS.render.title_subcols_offset >= RES_H) GS.render.title_subcols_offset = 0;
 		
 		GS.render.title_charlines_offset = ((GS.render.charlines - (title_menu_charlines_offset_add + 3'd4)) >> 1);
@@ -95,51 +106,85 @@ always @(posedge CLK_PLL) begin
 		
 		GS.render.title_menu_charlines_offset = GS.render.title_charlines_offset + title_menu_charlines_offset_add;
 		
+		// Options Menu
+		
+		GS.render.options_charlines_offset_selected = GS.render.charlines >> 1;
+		if(GS.render.options_charlines_offset_selected >= GS.render.charlines) GS.render.options_charlines_offset_selected = 0;
+		
+		GS.render.options_subcols_offset = 5;
+		GS.render.options_add_subcols_offset_selected = 5;
+		GS.render.options_values_subcols_offset = RES_H - ((FONT_W+1'd1) * 3'd3 * GS.options.PIX_W) - 4'd5;
+		if(GS.render.options_values_subcols_offset >= RES_H) GS.render.options_values_subcols_offset = 1;
 		
 	end
 	
-	
-	
-	
-	if(S1_EDGE) begin
-		if(++GS.options.palette_id == palettes_count) begin
-			GS.options.palette_id = 0;
+	case(GS.state_name)
+		GS_MAIN_MENU: begin
+			if(S1_EDGE) begin	
+				if(++GS.navigation.selected_element >= 3) begin
+					GS.navigation.selected_element = 0;
+				end
+			end
+			if(S2_EDGE) begin	
+				case(GS.navigation.selected_element)
+					0: begin // PLAY
+						//TODO
+					end
+					1: begin // OPTIONS
+						GS.navigation.selected_element = 0;
+						GS.state_name = GS_OPTIONS;
+					end
+					2: begin // HIGHSCORES
+						//TODO
+					end
+				endcase
+			end
 		end
-		GS.render.palette = palettes[GS.options.palette_id];
-	end
-	if(S2_EDGE) begin
-		case(GS.state_name)
-			GS_MAIN_MENU: begin
-				if(++GS.navigation.selected_element >= 3) begin
+		GS_OPTIONS: begin
+			if(S1_EDGE) begin	
+				if(++GS.navigation.selected_element >= 4) begin
 					GS.navigation.selected_element = 0;
-					GS.options.PIX_H++;
-					GS.options.PIX_W++;
-					GS.render.values_updated = 0;
+					GS.navigation.selected_sub_element = 0;
 				end
 			end
-			GS_OPTIONS: begin
-				if(++GS.navigation.selected_element >= 3) begin
-					GS.navigation.selected_element = 0;
-					GS.options.PIX_H = 2;
-					GS.options.PIX_W = 2;
-					GS.render.values_updated = 0;
-				end
+			if(S2_EDGE) begin	
+				case(GS.navigation.selected_element)
+					0: begin // BACK
+						GS.navigation.selected_element = 1;
+						GS.state_name = GS_MAIN_MENU;
+					end
+					1: begin // PIXEL WIDTH
+						GS.render.values_updated = 0;
+						if(!S3_DEB) GS.options.PIX_W -= 2'd2;
+						if(++GS.options.PIX_W >= 21) begin
+							GS.options.PIX_W = 1;
+						end
+					end
+					2: begin // PIXEL HEIGHT
+						GS.render.values_updated = 0;
+						if(!S3_DEB) GS.options.PIX_H -= 2'd2;
+						if(++GS.options.PIX_H >= 21) begin
+							GS.options.PIX_H = 1;
+						end
+					end
+					3: begin // PALETTE
+						if(++GS.options.palette_id == palettes_count) begin
+							GS.options.palette_id = 0;
+						end
+						GS.render.palette = palettes[GS.options.palette_id];
+					end
+				endcase
 			end
-		endcase
-	end
-	if(S3_EDGE) begin
-		Vals[2][3:0] += 3'd7;
-		case(GS.state_name)
-			GS_MAIN_MENU: GS.state_name = GS_OPTIONS;
-			GS_OPTIONS:   GS.state_name = GS_MAIN_MENU;
-		endcase
-	end
+		end
+	endcase
+
 	Vals[0][3:0] = GS.navigation.selected_element;
 	Vals[1][3:0] = GS.options.palette_id;
 	Vals[2][4] = 1;
 	Vals[3][3:0] = GS.state_name;
 	
-	LEDS[3:0] = GS.navigation.selected_element;
+	LEDS[1:0] = GS.navigation.selected_element[1:0];
+	LEDS[3:2] = GS.options.palette_id[1:0];
 	
 end
 

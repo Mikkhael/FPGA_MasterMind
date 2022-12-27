@@ -6,6 +6,7 @@ module VGA_Game_Renderer(
 	input  wire	[(FONT_W-1):0]     rom_q,
 	
 	input st_GAME_STATE GS,
+	input st_GS_DECIMALIZED GS_decim,
 	
 	output wire [2:0] RGB,
 	output wire 		HSYNC,
@@ -122,6 +123,8 @@ task automatic advance_counters_v(ref st_GAME_STATE GS, ref st_counters_v cntv);
 endtask
 
 
+`define display_decimized_character(name, index, fontline) \
+	rom_addr = (index < GS_DECIM_``name``_LEN) ? (CHAR_0 +  GS_decim.``name``[index] + (fontline << FONT_LINESHIFT)) : CHAR_;
 
 `define display_string_character(name, index, fontline) \
 	rom_addr = (index < STR_``name``_LEN) ? (STR_``name[index] + (fontline << FONT_LINESHIFT)) : CHAR_;
@@ -131,11 +134,11 @@ endtask
 	`display_string_character(name, index, fontline) \
 	cnth_fetch.skip_spacing_once = (index < STR_``name``_LEN) && (STR_MASK_``name``[index]); \
 	end
-	
-
 
 reg [10:0] off_fetch_char = 0;
-reg [10:0] off_charline = 0;
+reg [10:0] off_charline  = 0;
+reg [10:0] start_subcols = 0;
+reg options_is_values = 0;
 reg is_selected = 0;
 reg is_bg = 0;
 
@@ -185,13 +188,53 @@ always @(posedge clk) begin
 							0: `display_string_character_with_mask(PLAY,       cnth_fetch.charcol, cntv.fontline)
 							1: `display_string_character_with_mask(OPTIONS,    cnth_fetch.charcol, cntv.fontline)
 							2: `display_string_character_with_mask(HIGHSCORES, cnth_fetch.charcol, cntv.fontline)
+							default: rom_addr = CHAR_;
 						endcase
 					end
 				end
 			end
 			GS_OPTIONS: begin
-				if(cnth_fetch.fontcol == 0 && cnth_fetch.subcol == 0) begin
-					`display_string_character_with_mask(BACK, cnth_fetch.charcol, cntv.fontline)
+				options_is_values = cnth_fetch.val >= GS.render.options_values_subcols_offset;
+				off_charline = cntv.charline - GS.render.options_charlines_offset_selected + GS.navigation.selected_element;
+				start_subcols = options_is_values ? GS.render.options_values_subcols_offset : GS.render.options_subcols_offset;
+				if(cntv.charline == GS.render.options_charlines_offset_selected) begin // Selected Element line
+					// Add margin
+					start_subcols += options_is_values ? 1'd0 : GS.render.options_add_subcols_offset_selected;
+					// Increase size
+					cnth_fetch.pix_add = options_is_values ? 1'd0 : 1'd1;
+					cntv.pix_add = 1'd1;
+				end else begin
+					// Revert increased size
+					cnth_fetch.pix_add = 0;
+					cntv.pix_add = 0;
+				end
+				if(cnth_fetch.val >= start_subcols) begin
+					if(cnth_fetch.val == start_subcols) begin
+						cnth_fetch.subcol  = 0;
+						cnth_fetch.col     = 0;
+						cnth_fetch.fontcol = 0;
+						cnth_fetch.charcol = 0;
+					end
+					if(cnth_fetch.fontcol == 0 && cnth_fetch.subcol == 0) begin
+						if(options_is_values) begin
+							case(off_charline)
+								1: `display_decimized_character(options_PIX_W, cnth_fetch.charcol, cntv.fontline)
+								2: `display_decimized_character(options_PIX_H, cnth_fetch.charcol, cntv.fontline)
+								3: `display_decimized_character(options_palette_id, cnth_fetch.charcol, cntv.fontline)
+								default: rom_addr = CHAR_;
+							endcase
+						end else begin
+							case(off_charline)
+								0: `display_string_character_with_mask(BACK,        cnth_fetch.charcol, cntv.fontline)
+								1: `display_string_character_with_mask(PIXELWIDTH,  cnth_fetch.charcol, cntv.fontline)
+								2: `display_string_character_with_mask(PIXELHEIGHT, cnth_fetch.charcol, cntv.fontline)
+								3: `display_string_character_with_mask(PALETTE,     cnth_fetch.charcol, cntv.fontline)
+								default: rom_addr = CHAR_;
+							endcase
+						end
+					end
+				end else begin
+					rom_addr = CHAR_;
 				end
 			end
 		endcase
@@ -216,7 +259,7 @@ always @(posedge clk) begin
 		is_selected = 0; //(GS.navigation.selected_element + 10'd2 == cntv.charline) && (cntv.fontline != FONT_H);
 		case(GS.state_name)
 			GS_MAIN_MENU: is_selected = (GS.navigation.selected_element + GS.render.title_menu_charlines_offset == cntv.charline) && (cntv.fontline != FONT_H);
-			GS_OPTIONS:   is_selected = (GS.navigation.selected_element == cntv.charline) && (cntv.fontline != FONT_H);
+			GS_OPTIONS:   is_selected = (GS.render.options_charlines_offset_selected == cntv.charline) && (cntv.fontline != FONT_H);
 		endcase
 		is_bg = (cntv.fontline == FONT_H || cnth.fontcol == FONT_W) || (~rom_q[FONT_W - 1 - (cnth.fontcol)]);
 		color = is_bg ? (is_selected ? GS.render.palette.selected_bg : GS.render.palette.bg) : (is_selected ? GS.render.palette.selected : GS.render.palette.text);
@@ -227,8 +270,8 @@ always @(posedge clk) begin
 			end
 		end
 		
-		color[0] |= (cntv.fontline == 0);
-		color[1] |= (cntv.charline == 3);
+		//color[0] |= (cntv.fontline == 0);
+		//color[1] |= (cntv.charline == 3);
 	end
 end
 

@@ -32,14 +32,16 @@ parameter GS_MAIN_MENU_ELEMENTS = 3;
 
 typedef struct {
 	reg [3:0] selected_element;
+	reg [3:0] selected_sub_element;
+	reg is_selected_sub;
 	
 } st_GS_NAVIGATION;
 
 
 typedef struct {
-	reg [4:0] PIX_W;
-	reg [4:0] PIX_H;
-	reg [2:0] palette_id;
+	reg [5:0] PIX_W;			// 1
+	reg [5:0] PIX_H; 			// 2
+	reg [2:0] palette_id;   // 3
 } st_GS_OPTIONS;
 
 typedef struct {
@@ -60,7 +62,8 @@ typedef struct {
 	// Options Menu
 	reg [10:0] options_charlines_offset_selected;
 	reg [10:0] options_add_subcols_offset_selected;
-	reg [10:0] options_charcols_offset;
+	reg [10:0] options_subcols_offset;
+	reg [10:0] options_values_subcols_offset;
 	// Palette
 	st_GS_PALETTE palette;
 } st_GS_RENDER;
@@ -72,11 +75,33 @@ typedef struct {
 	st_GS_RENDER      render;
 } st_GAME_STATE;
 
+// DECIMALIZER
+
+parameter GS_DECIM_options_PIX_W_LEN = 2'd2;
+parameter GS_DECIM_options_PIX_H_LEN = 2'd2;
+parameter GS_DECIM_options_palette_id_LEN = 1'd1;
+
+typedef struct {
+	reg [GS_DECIM_options_PIX_W_LEN-1:0][3:0] 		options_PIX_W;
+	reg [GS_DECIM_options_PIX_H_LEN-1:0][3:0] 		options_PIX_H;
+	reg [GS_DECIM_options_palette_id_LEN-1:0][3:0]  options_palette_id;
+} st_GS_DECIMALIZED;
+
+module GS_DECIMALIZER(
+	input  st_GAME_STATE GS,
+	output st_GS_DECIMALIZED GS_decim
+);
+
+	DIV_MOD dm1(GS.options.PIX_W, GS_decim.options_PIX_W[0], GS_decim.options_PIX_W[1]);
+	DIV_MOD dm2(GS.options.PIX_H, GS_decim.options_PIX_H[0], GS_decim.options_PIX_H[1]);
+	assign GS_decim.options_palette_id = GS.options.palette_id;
+endmodule
+
 
 // PALETTES
 
-parameter reg [2:0] palettes_count = 2'd3;
-parameter st_GS_PALETTE palettes [0:2] = '{ '{
+parameter reg [2:0] palettes_count = 3'd5;
+parameter st_GS_PALETTE palettes [0:4] = '{ '{
 	text          : 3'b111,
 	bg            : 3'b000,
 	selected      : 3'b100,
@@ -87,9 +112,19 @@ parameter st_GS_PALETTE palettes [0:2] = '{ '{
 	selected      : 3'b000,
 	selected_bg   : 3'b100
 }, '{
+	text          : 3'b100,
+	bg            : 3'b000,
+	selected      : 3'b111,
+	selected_bg   : 3'b000
+}, '{
+	text          : 3'b111,
+	bg            : 3'b000,
+	selected      : 3'b100,
+	selected_bg   : 3'b000
+},  '{
 	text          : 3'b010,
-	bg            : 3'b101,
-	selected      : 3'b000,
+	bg            : 3'b001,
+	selected      : 3'b011,
 	selected_bg   : 3'b111
 }};
 
