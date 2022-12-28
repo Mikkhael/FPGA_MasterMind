@@ -37,11 +37,12 @@ typedef struct {
 	
 } st_GS_NAVIGATION;
 
+parameter reg [2:0] PIX_VALUE_W = 3'd6;
 
 typedef struct {
-	reg [5:0] PIX_W;			// 1
-	reg [5:0] PIX_H; 			// 2
-	reg [2:0] palette_id;   // 3
+	reg [PIX_VALUE_W-1:0] PIX_W;	// 1
+	reg [PIX_VALUE_W-1:0] PIX_H;  // 2
+	reg [2:0] palette_id;   		// 3
 } st_GS_OPTIONS;
 
 typedef struct {
@@ -92,11 +93,12 @@ module GS_DECIMALIZER(
 	output st_GS_DECIMALIZED GS_decim
 );
 
-	DIV_MOD dm1(GS.options.PIX_W, GS_decim.options_PIX_W[0], GS_decim.options_PIX_W[1]);
-	DIV_MOD dm2(GS.options.PIX_H, GS_decim.options_PIX_H[0], GS_decim.options_PIX_H[1]);
+	DIV_MOD #(.W_in(PIX_VALUE_W), .W_div(4)) dm1(GS.options.PIX_W, GS_decim.options_PIX_W[0], GS_decim.options_PIX_W[1]);
+	DIV_MOD #(.W_in(PIX_VALUE_W), .W_div(4)) dm2(GS.options.PIX_H, GS_decim.options_PIX_H[0], GS_decim.options_PIX_H[1]);
 	assign GS_decim.options_palette_id = GS.options.palette_id;
 endmodule
 
+parameter reg [10:0] powers_of_10 [0:3] = '{11'd1, 11'd10, 11'd100, 11'd1000};
 
 // PALETTES
 

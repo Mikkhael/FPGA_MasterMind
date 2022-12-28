@@ -8,6 +8,8 @@ module VGA_Game_Renderer(
 	input st_GAME_STATE GS,
 	input st_GS_DECIMALIZED GS_decim,
 	
+	input wire [31:0] time_counter,
+	
 	output wire [2:0] RGB,
 	output wire 		HSYNC,
 	output wire			VSYNC
@@ -261,7 +263,19 @@ always @(posedge clk) begin
 			GS_MAIN_MENU: is_selected = (GS.navigation.selected_element + GS.render.title_menu_charlines_offset == cntv.charline) && (cntv.fontline != FONT_H);
 			GS_OPTIONS:   is_selected = (GS.render.options_charlines_offset_selected == cntv.charline) && (cntv.fontline != FONT_H);
 		endcase
-		is_bg = (cntv.fontline == FONT_H || cnth.fontcol == FONT_W) || (~rom_q[FONT_W - 1 - (cnth.fontcol)]);
+		
+		
+		if(	GS.state_name == GS_OPTIONS && // Blinking of digits
+				is_selected &&
+				GS.navigation.is_selected_sub &&
+				GS.navigation.selected_sub_element == cnth.charcol &&
+				cnth.val >= GS.render.options_values_subcols_offset &&
+				time_counter[17] ) begin
+			is_bg = 1'd1;
+		end else begin
+			is_bg = (cntv.fontline == FONT_H || cnth.fontcol == FONT_W) || (~rom_q[FONT_W - 1 - (cnth.fontcol)]);
+		end
+		
 		color = is_bg ? (is_selected ? GS.render.palette.selected_bg : GS.render.palette.bg) : (is_selected ? GS.render.palette.selected : GS.render.palette.text);
 		
 		if(GS.state_name == GS_MAIN_MENU) begin

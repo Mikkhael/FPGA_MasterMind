@@ -80,7 +80,7 @@ endmodule
 module DIV_MOD #(
 	parameter base = 4'd10,
 	parameter W_in  = ADDR_W,
-	parameter W_mod = 4,
+	parameter W_mod = 4'd4,
 	parameter W_div = W_in
 )(
 	input wire [W_in-1:0]  in,
@@ -92,9 +92,12 @@ module DIV_MOD #(
 	function [W_mod-1:0] truncate_mod(input [W_in-1:0] val);
 		truncate_mod = val[W_mod-1:0];
 	endfunction
+	function [W_div-1:0] truncate_div(input [W_in-1:0] val);
+		truncate_div = val[W_div-1:0];
+	endfunction
 	
 	always @(*) begin
-		div = in / base;
+		div = truncate_div(in / base);
 		mod = truncate_mod(in % base);
 	end
 
