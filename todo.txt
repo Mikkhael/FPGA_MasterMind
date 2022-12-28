@@ -12,7 +12,7 @@
 + remove warnings with overflow
 ? fix bug with incorect resizing (when in options with big pixels)
 
-- buttons
++ buttons
 - game 
 
 

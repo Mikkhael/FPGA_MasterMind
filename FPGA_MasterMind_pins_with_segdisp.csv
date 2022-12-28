@@ -1,0 +1,47 @@
+# Copyright (C) 2022  Intel Corporation. All rights reserved.
+# Your use of Intel Corporation's design tools, logic functions 
+# and other software and tools, and any partner logic 
+# functions, and any output files from any of the foregoing 
+# (including device programming or simulation files), and any 
+# associated documentation or information are expressly subject 
+# to the terms and conditions of the Intel Program License 
+# Subscription Agreement, the Intel Quartus Prime License Agreement,
+# the Intel FPGA IP License Agreement, or other applicable license
+# agreement, including, without limitation, that your use is for
+# the sole purpose of programming logic devices manufactured by
+# Intel and sold by Intel or its authorized distributors.  Please
+# refer to the applicable agreement for further details, at
+# https://fpgasoftware.intel.com/eula.
+
+# Quartus Prime Version 21.1.1 Build 850 06/23/2022 SJ Lite Edition
+# File: C:\Users\bondg\Desktop\Dev\FPGA_MasterMind\FPGA_MasterMind_pins_with_segdisp.csv
+# Generated on: Wed Dec 28 21:34:41 2022
+
+# Note: The column header names should not be changed if you wish to import this .csv file into the Quartus Prime software.
+
+To,Direction,Location,I/O Bank,VREF Group,Fitter Location,I/O Standard,Reserved,Current Strength,Slew Rate,Differential Pair,Strict Preservation
+CLK0,Input,PIN_L3,2,B2_N0,PIN_L3,2.5 V,,,,,
+LED0,Output,PIN_M16,5,B5_N0,PIN_M16,2.5 V,,,,,
+LED1,Output,PIN_N16,5,B5_N0,PIN_N16,2.5 V,,,,,
+LED2,Output,PIN_P16,5,B5_N0,PIN_P16,2.5 V,,,,,
+LED3,Output,PIN_R16,5,B5_N0,PIN_R16,2.5 V,,,,,
+SEG_A,Input,PIN_L16,5,B5_N0,PIN_L16,2.5 V,,,,,
+SEG_B,Input,PIN_J15,6,B6_N0,PIN_J15,2.5 V,,,,,
+SEG_C,Input,PIN_J16,6,B6_N0,PIN_J16,2.5 V,,,,,
+SEG_D,Input,PIN_H15,6,B6_N0,PIN_H15,2.5 V,,,,,
+SEG_E,Input,PIN_H16,6,B6_N0,PIN_H16,2.5 V,,,,,
+VGA_B,Output,PIN_M1,2,B2_N0,PIN_M1,2.5 V,,,,,
+VGA_G,Output,PIN_N1,2,B2_N0,PIN_N1,2.5 V,,,,,
+VGA_HSYNC,Output,PIN_L1,2,B2_N0,PIN_L1,2.5 V,,,,,
+VGA_R,Output,PIN_R1,3,B3_N0,PIN_R1,2.5 V,,,,,
+VGA_VSYNC,Output,PIN_J1,1B,B1_N0,PIN_J1,2.5 V,,,,,
+SEG_F,Unknown,PIN_G15,6,B6_N0,,,,,,,
+SEG_G,Unknown,PIN_G16,6,B6_N0,,,,,,,
+SEG_DP,Unknown,PIN_F16,6,B6_N0,,,,,,,
+DS1,Unknown,PIN_E15,6,B6_N0,,,,,,,
+DS2,Unknown,PIN_E16,6,B6_N0,,,,,,,
+DS3,Unknown,PIN_D15,6,B6_N0,,,,,,,
+DS4,Unknown,PIN_D16,6,B6_N0,,,,,,,
+S2,Unknown,PIN_B15,6,B6_N0,,,,,,,
+S1,Unknown,PIN_B16,6,B6_N0,,,,,,,
+S3,Unknown,PIN_R15,5,B5_N0,,,,,,,

@@ -4,23 +4,11 @@ module Main_Game(
 
 input wire CLK0,
 
-input wire S1,
-input wire S2,
-input wire S3,
-
-output reg SEG_A = 0,
-output reg SEG_B = 0,
-output reg SEG_C = 0,
-output reg SEG_D = 0,
-output reg SEG_E = 0,
-output reg SEG_F = 0,
-output reg SEG_G = 0,
-output reg SEG_DP = 0,
-
-output reg DS1 = 0,
-output reg DS2 = 0,
-output reg DS3 = 0,
-output reg DS4 = 0,
+input wire BTN_RAW_LEFT ,
+input wire BTN_RAW_DOWN ,
+input wire BTN_RAW_RIGHT,
+input wire BTN_RAW_UP   ,
+input wire BTN_RAW_ENTER,
 
 output wire LED0,
 output wire LED1,
@@ -42,18 +30,26 @@ wire CLK_PLL2;
 wire CLK_VGA;
 PLL main_pll(pll_areset, CLK0, CLK_PLL, CLK_PLL2, CLK_VGA);
 
-wire S1_DEB, S1_EDGE;
-wire S2_DEB, S2_EDGE;
-wire S3_DEB, S3_EDGE;
-DEBOUNCE deb1(CLK_PLL, S1, S1_DEB);
-DEBOUNCE deb2(CLK_PLL, S2, S2_DEB);
-DEBOUNCE deb3(CLK_PLL, S3, S3_DEB);
-EDGE_NEG edge1(CLK_PLL, S1_DEB, S1_EDGE);
-EDGE_NEG edge2(CLK_PLL, S2_DEB, S2_EDGE);
-EDGE_NEG edge3(CLK_PLL, S3_DEB, S3_EDGE);
+wire BTN_DEB_LEFT  , BTN_EDGE_LEFT;
+wire BTN_DEB_DOWN  , BTN_EDGE_DOWN;
+wire BTN_DEB_RIGHT , BTN_EDGE_RIGHT;
+wire BTN_DEB_UP    , BTN_EDGE_UP;
+wire BTN_DEB_ENTER , BTN_EDGE_ENTER;
 
-reg [4:0] Vals [0:3] = '{default: 5'h0};
-SegmentDisplay segdisp1(CLK_PLL2, Vals, {DS4, DS3, DS2, DS1}, {SEG_DP, SEG_G, SEG_F, SEG_E, SEG_D, SEG_C, SEG_B, SEG_A});
+DEBOUNCE deb_left (CLK_PLL, BTN_RAW_LEFT , 	BTN_DEB_LEFT );
+DEBOUNCE deb_down (CLK_PLL, BTN_RAW_DOWN , 	BTN_DEB_DOWN );
+DEBOUNCE deb_right(CLK_PLL, BTN_RAW_RIGHT, 	BTN_DEB_RIGHT);
+DEBOUNCE deb_ip   (CLK_PLL, BTN_RAW_UP   , 	BTN_DEB_UP   );
+DEBOUNCE deb_enter(CLK_PLL, BTN_RAW_ENTER, 	BTN_DEB_ENTER);
+EDGE_NEG edge_left (CLK_PLL, BTN_DEB_LEFT ,  BTN_EDGE_LEFT );
+EDGE_NEG edge_down (CLK_PLL, BTN_DEB_DOWN ,  BTN_EDGE_DOWN );
+EDGE_NEG edge_right(CLK_PLL, BTN_DEB_RIGHT,  BTN_EDGE_RIGHT);
+EDGE_NEG edge_ip   (CLK_PLL, BTN_DEB_UP   ,  BTN_EDGE_UP   );
+EDGE_NEG edge_enter(CLK_PLL, BTN_DEB_ENTER,  BTN_EDGE_ENTER);
+
+
+//reg [4:0] Vals [0:3] = '{default: 5'h0};
+//SegmentDisplay segdisp1(CLK_PLL2, Vals, {DS4, DS3, DS2, DS1}, {SEG_DP, SEG_G, SEG_F, SEG_E, SEG_D, SEG_C, SEG_B, SEG_A});
 
 reg [3:0] LEDS = 0;
 assign {LED3, LED2, LED1, LED0} = ~LEDS;
@@ -84,6 +80,11 @@ GS_DECIMALIZER GS_decimalizer(GS, GS_decim);
 
 
 VGA_Game_Renderer vga(CLK_VGA, font_rom_clk, font_rom_addr, font_rom_q, GS, GS_decim, {VGA_R, VGA_G, VGA_B}, VGA_HSYNC, VGA_VSYNC);
+
+`define inc_clumped(value, max) \
+	value = (value >= (max)) ? value : (value + 1'd1);
+`define dec_clumped(value, min) \
+	value = (value <= (min)) ? value : (value - 1'd1);
 
 always @(posedge CLK_PLL) begin
 	
@@ -120,12 +121,13 @@ always @(posedge CLK_PLL) begin
 	
 	case(GS.state_name)
 		GS_MAIN_MENU: begin
-			if(S1_EDGE) begin	
-				if(++GS.navigation.selected_element >= 3) begin
-					GS.navigation.selected_element = 0;
-				end
+			if(BTN_EDGE_DOWN) begin	
+				`inc_clumped(GS.navigation.selected_element, 2)
 			end
-			if(S2_EDGE) begin	
+			if(BTN_EDGE_UP) begin	
+				`dec_clumped(GS.navigation.selected_element, 0)
+			end
+			if(BTN_EDGE_ENTER) begin	
 				case(GS.navigation.selected_element)
 					0: begin // PLAY
 						//TODO
@@ -141,13 +143,15 @@ always @(posedge CLK_PLL) begin
 			end
 		end
 		GS_OPTIONS: begin
-			if(S1_EDGE) begin	
-				if(++GS.navigation.selected_element >= 4) begin
-					GS.navigation.selected_element = 0;
-					GS.navigation.selected_sub_element = 0;
-				end
+			if(BTN_EDGE_DOWN) begin	
+				`inc_clumped(GS.navigation.selected_element, 3)
+				GS.navigation.selected_sub_element = 0;
 			end
-			if(S2_EDGE) begin	
+			if(BTN_EDGE_UP) begin	
+				`dec_clumped(GS.navigation.selected_element, 0)
+				GS.navigation.selected_sub_element = 0;
+			end
+			if(BTN_EDGE_ENTER) begin	
 				case(GS.navigation.selected_element)
 					0: begin // BACK
 						GS.navigation.selected_element = 1;
@@ -155,14 +159,14 @@ always @(posedge CLK_PLL) begin
 					end
 					1: begin // PIXEL WIDTH
 						GS.render.values_updated = 0;
-						if(!S3_DEB) GS.options.PIX_W -= 2'd2;
+						if(!BTN_DEB_RIGHT) GS.options.PIX_W -= 2'd2;
 						if(++GS.options.PIX_W >= 21) begin
 							GS.options.PIX_W = 1;
 						end
 					end
 					2: begin // PIXEL HEIGHT
 						GS.render.values_updated = 0;
-						if(!S3_DEB) GS.options.PIX_H -= 2'd2;
+						if(!BTN_DEB_RIGHT) GS.options.PIX_H -= 2'd2;
 						if(++GS.options.PIX_H >= 21) begin
 							GS.options.PIX_H = 1;
 						end
@@ -178,10 +182,10 @@ always @(posedge CLK_PLL) begin
 		end
 	endcase
 
-	Vals[0][3:0] = GS.navigation.selected_element;
-	Vals[1][3:0] = GS.options.palette_id;
-	Vals[2][4] = 1;
-	Vals[3][3:0] = GS.state_name;
+//	Vals[0][3:0] = GS.navigation.selected_element;
+//	Vals[1][3:0] = GS.options.palette_id;
+//	Vals[2][4] = 1;
+//	Vals[3][3:0] = GS.state_name;
 	
 	LEDS[1:0] = GS.navigation.selected_element[1:0];
 	LEDS[3:2] = GS.options.palette_id[1:0];
