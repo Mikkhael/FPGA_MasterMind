@@ -271,6 +271,20 @@ const FONT_DATA = [
         '....',
         '....',
     ]],
+    ['QMark', [
+        `111.`,
+        `...1`,
+        `.11.`,
+        '....',
+        '.1..',
+    ]],
+    ['Hash', [
+        `.1.1`,
+        `1111`,
+        `.11.`,
+        '1111',
+        '1.1.',
+    ]],
     ['ArrowR', [
         `11..`,
         `.11.`,
@@ -308,13 +322,20 @@ const LONG_SPRITES_DATA = [
 const S = str => str.split('');
 const STRINGS = [
     ['TITLE', ['MM', ...S('ASTER'), 'Mind'], true],
-    ['PLAY'],
+    ['PLAY VS COMPUTER'],
+    ['PLAY VS HUMAN'],
     ['OPTIONS'],
     ['HIGHSCORES'],
 
+    ['GUESS'],
+    ['EXIT'],
+
     ['BACK', ['ArrowL', 'ArrowL', ...S(' BACK '), 'ArrowL', 'ArrowL']],
 
-    ['PIXEL WIDTH '],
+    ['PIN COLORS'],
+    ['PINS COUNT'],
+    ['GUESSES'],
+    ['PIXEL WIDTH'],
     ['PIXEL HEIGHT'],
     ['PALETTE'],
 ];

@@ -5,6 +5,10 @@ module VGA_Game_Renderer(
 	output reg  [(ADDR_W-1):0]	rom_addr = 0, 
 	input  wire	[(FONT_W-1):0]     rom_q,
 	
+	output wire board_ram_rclk,
+	output reg [11:0] board_ram_raddr = 0,
+	input wire [7:0]  board_ram_q,
+	
 	input st_GAME_STATE GS,
 	input st_GS_DECIMALIZED GS_decim,
 	
@@ -27,6 +31,9 @@ typedef struct{
 	
 	reg skip_spacing_once;
 	reg [4:0] pix_add;
+	
+	reg [10:0] start_subcols;
+	reg [3:0] board_drawing_stage;
 } st_counters_h;
 
 typedef struct{
@@ -57,6 +64,7 @@ assign HSYNC = (cnth.val >= RES_H + BLK_HF && cnth.val < RES_H + BLK_HF + BLK_HT
 assign VSYNC = (cntv.val >= RES_V + BLK_VF && cntv.val < RES_V + BLK_VF + BLK_VT);
 
 assign rom_clk = clk;
+assign board_ram_rclk = clk;
 
 
 task automatic advance_counters_h(ref st_GAME_STATE GS, ref st_counters_h cnth);
@@ -128,6 +136,9 @@ endtask
 `define display_decimized_character(name, index, fontline) \
 	rom_addr = (index < GS_DECIM_``name``_LEN) ? (CHAR_0 +  GS_decim.``name``[index] + (fontline << FONT_LINESHIFT)) : CHAR_;
 
+`define display_decimized_character2(name, index, fontline) \
+	rom_addr = ((index) < 2'd2 && ((index) != 1'd0 || ``name``[1'd0] != 4'd0)) ? (CHAR_0 + ``name``[index] + (fontline << FONT_LINESHIFT)) : CHAR_;
+
 `define display_string_character(name, index, fontline) \
 	rom_addr = (index < STR_``name``_LEN) ? (STR_``name[index] + (fontline << FONT_LINESHIFT)) : CHAR_;
 
@@ -137,12 +148,25 @@ endtask
 	cnth_fetch.skip_spacing_once = (index < STR_``name``_LEN) && (STR_MASK_``name``[index]); \
 	end
 
-reg [10:0] off_fetch_char = 0;
+//reg [10:0] off_fetch_char = 0;
 reg [10:0] off_charline  = 0;
 reg [10:0] start_subcols = 0;
 reg options_is_values = 0;
 reg is_selected = 0;
 reg is_bg = 0;
+
+
+reg [10:0] board_current_line_index   = 0;
+reg [7:0]  board_current_hints_green  = 0;
+reg [7:0]  board_current_hints_yellow = 0;
+
+reg [1:0][3:0] board_current_line_index_decimized   = 0;
+reg [1:0][3:0] board_current_hints_green_decimized  = 0;
+reg [1:0][3:0] board_current_hints_yellow_decimized = 0;
+
+DIV_MOD #(.W_in(8), .W_div(4)) dm_index        (board_current_line_index,   board_current_line_index_decimized[0],   board_current_line_index_decimized[1]);
+DIV_MOD #(.W_in(8), .W_div(4)) dm_hints_green  (board_current_hints_green,  board_current_hints_green_decimized[0],  board_current_hints_green_decimized[1]);
+DIV_MOD #(.W_in(8), .W_div(4)) dm_hints_yellow (board_current_hints_yellow, board_current_hints_yellow_decimized[0], board_current_hints_yellow_decimized[1]);
 
 always @(posedge clk) begin
 	
@@ -187,9 +211,10 @@ always @(posedge clk) begin
 					if(cnth_fetch.fontcol == 0 && cnth_fetch.subcol == 0) begin
 						off_charline = cntv.charline - GS.render.title_menu_charlines_offset;
 						case(off_charline)
-							0: `display_string_character_with_mask(PLAY,       cnth_fetch.charcol, cntv.fontline)
-							1: `display_string_character_with_mask(OPTIONS,    cnth_fetch.charcol, cntv.fontline)
-							2: `display_string_character_with_mask(HIGHSCORES, cnth_fetch.charcol, cntv.fontline)
+							0: `display_string_character_with_mask(PLAYVSCOMPUTER, cnth_fetch.charcol, cntv.fontline)
+							1: `display_string_character_with_mask(PLAYVSHUMAN,    cnth_fetch.charcol, cntv.fontline)
+							2: `display_string_character_with_mask(OPTIONS,        cnth_fetch.charcol, cntv.fontline)
+							3: `display_string_character_with_mask(HIGHSCORES,     cnth_fetch.charcol, cntv.fontline)
 							default: rom_addr = CHAR_;
 						endcase
 					end
@@ -220,17 +245,23 @@ always @(posedge clk) begin
 					if(cnth_fetch.fontcol == 0 && cnth_fetch.subcol == 0) begin
 						if(options_is_values) begin
 							case(off_charline)
-								1: `display_decimized_character(options_PIX_W, cnth_fetch.charcol, cntv.fontline)
-								2: `display_decimized_character(options_PIX_H, cnth_fetch.charcol, cntv.fontline)
-								3: `display_decimized_character(options_palette_id, cnth_fetch.charcol, cntv.fontline)
+								1: `display_decimized_character(options_pin_colors, cnth_fetch.charcol, cntv.fontline)
+								2: `display_decimized_character(options_pins_count, cnth_fetch.charcol, cntv.fontline)
+								3: `display_decimized_character(options_guesses,    cnth_fetch.charcol, cntv.fontline)
+								4: `display_decimized_character(options_PIX_W, cnth_fetch.charcol, cntv.fontline)
+								5: `display_decimized_character(options_PIX_H, cnth_fetch.charcol, cntv.fontline)
+								6: `display_decimized_character(options_palette_id, cnth_fetch.charcol, cntv.fontline)
 								default: rom_addr = CHAR_;
 							endcase
 						end else begin
 							case(off_charline)
 								0: `display_string_character_with_mask(BACK,        cnth_fetch.charcol, cntv.fontline)
-								1: `display_string_character_with_mask(PIXELWIDTH,  cnth_fetch.charcol, cntv.fontline)
-								2: `display_string_character_with_mask(PIXELHEIGHT, cnth_fetch.charcol, cntv.fontline)
-								3: `display_string_character_with_mask(PALETTE,     cnth_fetch.charcol, cntv.fontline)
+								1: `display_string_character_with_mask(PINCOLORS,   cnth_fetch.charcol, cntv.fontline)
+								2: `display_string_character_with_mask(PINSCOUNT,   cnth_fetch.charcol, cntv.fontline)
+								3: `display_string_character_with_mask(GUESSES,     cnth_fetch.charcol, cntv.fontline)
+								4: `display_string_character_with_mask(PIXELWIDTH,  cnth_fetch.charcol, cntv.fontline)
+								5: `display_string_character_with_mask(PIXELHEIGHT, cnth_fetch.charcol, cntv.fontline)
+								6: `display_string_character_with_mask(PALETTE,     cnth_fetch.charcol, cntv.fontline)
 								default: rom_addr = CHAR_;
 							endcase
 						end
@@ -239,7 +270,67 @@ always @(posedge clk) begin
 					rom_addr = CHAR_;
 				end
 			end
+			GS_GAME: begin
+				cnth_fetch.board_drawing_stage = 3'd7;
+				board_current_line_index = GS.render.charlines - 1'd1 - cntv.charline + GS.board.scroll_offset;
+				if     (cnth_fetch.val >= GS.render.board_hints_subcols_offset)   cnth_fetch.board_drawing_stage = 3'd0;
+				else if(cnth_fetch.val >= GS.render.board_border2_subcols_offset) cnth_fetch.board_drawing_stage = 3'd1;
+				else if(cnth_fetch.val >= GS.render.board_tiles_subcols_offset)   cnth_fetch.board_drawing_stage = 3'd2;
+				else if(cnth_fetch.val >= GS.render.board_border1_subcols_offset) cnth_fetch.board_drawing_stage = 3'd3;
+				else if(cntv.charline + 1'd1 != GS.render.charlines && cnth_fetch.val >= GS.render.board_index_subcols_offset) cnth_fetch.board_drawing_stage = 3'd4;
+				else if(cntv.charline + 1'd1 == GS.render.charlines && cnth_fetch.val >= GS.render.board_guess_subcols_offset) cnth_fetch.board_drawing_stage = 3'd5;
+				else if(cntv.charline + 1'd1 == GS.render.charlines && cnth_fetch.val >= GS.render.board_exit_subcols_offset)  cnth_fetch.board_drawing_stage = 3'd6;
+				case(cnth_fetch.board_drawing_stage)
+					0: cnth_fetch.start_subcols = GS.render.board_hints_subcols_offset;
+					1: cnth_fetch.start_subcols = GS.render.board_border2_subcols_offset;
+					2: cnth_fetch.start_subcols = GS.render.board_tiles_subcols_offset;
+					3: cnth_fetch.start_subcols = GS.render.board_border1_subcols_offset;
+					4: cnth_fetch.start_subcols = GS.render.board_index_subcols_offset;
+					5: cnth_fetch.start_subcols = GS.render.board_guess_subcols_offset;
+					6: cnth_fetch.start_subcols = GS.render.board_exit_subcols_offset;
+				endcase
+				if(cnth_fetch.val == cnth_fetch.start_subcols) begin
+					cnth_fetch.subcol  = 0;
+					cnth_fetch.col     = 0;
+					cnth_fetch.fontcol = 0;
+					cnth_fetch.charcol = 0;
+				end
+				case(cnth_fetch.board_drawing_stage)
+					0: begin
+						if(cnth_fetch.charcol < 2) begin
+							`display_decimized_character2(board_current_hints_yellow_decimized, cnth_fetch.charcol, cntv.fontline)
+						end else begin
+							`display_decimized_character2(board_current_hints_green_decimized,  cnth_fetch.charcol-2'd2, cntv.fontline)
+						end
+					end
+					2: begin
+						board_ram_raddr = cntv.charline * max_pins_count + cnth_fetch.charcol;
+					end
+					4: begin
+						if(board_current_line_index > GS.options.guesses) begin
+							rom_addr = CHAR_;
+						end else if(cnth_fetch.charcol == 0) begin
+							rom_addr = CHAR_Hash + (cntv.fontline << FONT_LINESHIFT);
+						end else begin
+							`display_decimized_character2(board_current_line_index_decimized, cnth_fetch.charcol-1'd1, cntv.fontline)
+						end
+					end
+					5: `display_string_character_with_mask(GUESS, cnth_fetch.charcol, cntv.fontline)
+					6: `display_string_character_with_mask(EXIT,  cnth_fetch.charcol, cntv.fontline)
+					default: begin
+						rom_addr = CHAR_;
+					end
+				endcase
+			end
 		endcase
+	end else if (cnth_fetch.blanking && GS.state_name == GS_GAME) begin
+		if(cnth_fetch.val <= RES_H + 5'd10) begin
+			board_ram_raddr = cntv.charline * 2'd2 + ram_hints_offset;
+			board_current_hints_yellow = board_ram_q;
+		end else if(cnth_fetch.val <= RES_H + 5'd20) begin
+			board_ram_raddr = cntv.charline * 2'd2 + ram_hints_offset + 1'd1;
+			board_current_hints_green = board_ram_q;
+		end
 	end
 	
 //	if(cnth_fetch.fontcol == 0 && cnth_fetch.subcol == 0) begin
@@ -277,6 +368,42 @@ always @(posedge clk) begin
 		end
 		
 		color = is_bg ? (is_selected ? GS.render.palette.selected_bg : GS.render.palette.bg) : (is_selected ? GS.render.palette.selected : GS.render.palette.text);
+		
+		
+		if(GS.state_name == GS_GAME) begin
+			case(cnth.board_drawing_stage)
+				0: begin // Hints
+					if(cnth.charcol < 3'd4) begin
+						if(is_bg) color = (cnth.charcol < 2'd2) ? 3'b110 : 3'b010;
+						else		 color = 3'b100;
+					end
+					if(cntv.charline + 1'd1 == GS.render.charlines) begin
+						color = 3'b000;
+					end
+				end
+				1,3: begin // Borders
+					color = (cnth.val <= cnth.start_subcols + GS.render.board_border_subcols_width) ? 3'b111 : 3'b000;
+				end
+				2: begin // Tiles
+					if(cnth.fontcol != FONT_W && cntv.fontline != FONT_H) begin
+						color = board_ram_q[2:0];
+					end else begin
+						color = 3'b000;
+					end
+				end
+			endcase
+			
+			if(cntv.fontline == FONT_H) begin // Row Seperators
+				if((cntv.charline >= GS.render.charlines - 2'd2 && (cnth.board_drawing_stage == 2'd1 || cnth.board_drawing_stage == 2'd2)) ||
+				   cnth.val - GS.render.board_border1_subcols_end    <= GS.render.board_border_seperator_length ||
+					GS.render.board_border2_subcols_offset - cnth.val <= GS.render.board_border_seperator_length)
+				color = 3'b111;
+			end
+		end
+		
+		if(GS.state_name == GS_GAME && cntv.charline >= GS.render.charlines) begin
+				color = 0;
+		end
 		
 		if(GS.state_name == GS_MAIN_MENU) begin
 			if(cntv.charline == GS.render.title_charlines_offset) begin

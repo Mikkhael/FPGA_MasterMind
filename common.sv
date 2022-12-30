@@ -20,7 +20,7 @@ parameter V_TIME_TOTAL = RES_V + BLK_VF + BLK_VT + BLK_VB;
 //// Game State Machine Types ////
 
 
-typedef enum logic [1:0] {GS_MAIN_MENU, GS_OPTIONS} GAME_STATE_NAME;
+typedef enum logic [1:0] {GS_MAIN_MENU, GS_OPTIONS, GS_GAME} GAME_STATE_NAME;
 
 parameter GS_MAIN_MENU_ELEMENTS = 3;
 
@@ -34,16 +34,40 @@ typedef struct {
 	reg [3:0] selected_element;
 	reg [3:0] selected_sub_element;
 	reg is_selected_sub;
-	
+	reg is_selected_scroll;
 } st_GS_NAVIGATION;
 
 parameter reg [2:0] PIX_VALUE_W = 3'd6;
+parameter reg [7:0] max_pin_colors = 8'd21;
+parameter reg [7:0] max_pins_count = 8'd20;
+parameter reg [7:0] max_guesses    = 8'd99;
+
+parameter reg [11:0] ram_hints_offset = max_pins_count * max_guesses;
 
 typedef struct {
-	reg [PIX_VALUE_W-1:0] PIX_W;	// 1
-	reg [PIX_VALUE_W-1:0] PIX_H;  // 2
-	reg [2:0] palette_id;   		// 3
+	reg [7:0] pin_colors;
+	reg [7:0] pins_count;
+	reg [7:0] guesses;
+	reg [PIX_VALUE_W-1:0] PIX_W;	
+	reg [PIX_VALUE_W-1:0] PIX_H;  
+	reg [2:0] palette_id;   		
 } st_GS_OPTIONS;
+
+
+typedef struct {
+	reg is_vs_human;
+	reg [7:0] guessed_count;
+	reg [7:0] scroll_offset;
+	reg [7:0] current_guess [0:max_pins_count-1];
+	
+	reg is_guess_entered;
+	reg is_guess_uploaded;
+	
+	reg [7:0] calculated_green;
+	reg [7:0] calculated_yellow;
+	
+	reg [7:0] secret [0:max_pins_count-1];
+} st_GS_BOARD;
 
 typedef struct {
 	reg [2:0] text;
@@ -65,6 +89,17 @@ typedef struct {
 	reg [10:0] options_add_subcols_offset_selected;
 	reg [10:0] options_subcols_offset;
 	reg [10:0] options_values_subcols_offset;
+	// Board
+	reg [10:0] board_index_subcols_offset;
+	reg [10:0] board_border1_subcols_offset;
+	reg [10:0] board_border1_subcols_end;
+	reg [10:0] board_border2_subcols_offset;
+	reg [10:0] board_border_subcols_width;
+	reg [10:0] board_tiles_subcols_offset;
+	reg [10:0] board_hints_subcols_offset;
+	reg [10:0] board_border_seperator_length;
+	reg [10:0] board_exit_subcols_offset;
+	reg [10:0] board_guess_subcols_offset;
 	// Palette
 	st_GS_PALETTE palette;
 } st_GS_RENDER;
@@ -74,18 +109,25 @@ typedef struct {
 	st_GS_NAVIGATION	navigation;
 	st_GS_OPTIONS	 	options;
 	st_GS_RENDER      render;
+	st_GS_BOARD			board;
 } st_GAME_STATE;
 
 // DECIMALIZER
 
+parameter GS_DECIM_options_pin_colors_LEN = 2'd2;
+parameter GS_DECIM_options_pins_count_LEN = 2'd2;
+parameter GS_DECIM_options_guesses_LEN = 2'd2;
 parameter GS_DECIM_options_PIX_W_LEN = 2'd2;
 parameter GS_DECIM_options_PIX_H_LEN = 2'd2;
 parameter GS_DECIM_options_palette_id_LEN = 1'd1;
 
 typedef struct {
-	reg [GS_DECIM_options_PIX_W_LEN-1:0][3:0] 		options_PIX_W;
-	reg [GS_DECIM_options_PIX_H_LEN-1:0][3:0] 		options_PIX_H;
-	reg [GS_DECIM_options_palette_id_LEN-1:0][3:0]  options_palette_id;
+	reg [GS_DECIM_options_pin_colors_LEN-1:0][3:0] 		options_pin_colors;
+	reg [GS_DECIM_options_pins_count_LEN-1:0][3:0] 		options_pins_count;
+	reg [GS_DECIM_options_guesses_LEN-1:0][3:0] 		   options_guesses;
+	reg [GS_DECIM_options_PIX_W_LEN-1:0][3:0] 		   options_PIX_W;
+	reg [GS_DECIM_options_PIX_H_LEN-1:0][3:0] 	   	options_PIX_H;
+	reg [GS_DECIM_options_palette_id_LEN-1:0][3:0]     options_palette_id;
 } st_GS_DECIMALIZED;
 
 module GS_DECIMALIZER(
@@ -93,8 +135,11 @@ module GS_DECIMALIZER(
 	output st_GS_DECIMALIZED GS_decim
 );
 
-	DIV_MOD #(.W_in(PIX_VALUE_W), .W_div(4)) dm1(GS.options.PIX_W, GS_decim.options_PIX_W[0], GS_decim.options_PIX_W[1]);
-	DIV_MOD #(.W_in(PIX_VALUE_W), .W_div(4)) dm2(GS.options.PIX_H, GS_decim.options_PIX_H[0], GS_decim.options_PIX_H[1]);
+	DIV_MOD #(.W_in(8), .W_div(4))           dm1(GS.options.pin_colors, GS_decim.options_pin_colors[0], GS_decim.options_pin_colors[1]);
+	DIV_MOD #(.W_in(8), .W_div(4))           dm2(GS.options.pins_count, GS_decim.options_pins_count[0], GS_decim.options_pins_count[1]);
+	DIV_MOD #(.W_in(8), .W_div(4))           dm3(GS.options.guesses, GS_decim.options_guesses[0], GS_decim.options_guesses[1]);
+	DIV_MOD #(.W_in(PIX_VALUE_W), .W_div(4)) dm4(GS.options.PIX_W, GS_decim.options_PIX_W[0], GS_decim.options_PIX_W[1]);
+	DIV_MOD #(.W_in(PIX_VALUE_W), .W_div(4)) dm5(GS.options.PIX_H, GS_decim.options_PIX_H[0], GS_decim.options_PIX_H[1]);
 	assign GS_decim.options_palette_id = GS.options.palette_id;
 endmodule
 

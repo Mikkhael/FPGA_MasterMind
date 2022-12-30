@@ -8,12 +8,19 @@
 - randomness
 	- algorithm
 	- title
+	- secret
 - preety background
 + remove warnings with overflow
 ? fix bug with incorect resizing (when in options with big pixels)
 
 + buttons
-- game 
+- game
+	+ layout
+	- auto layout calculation
+	- ram interactivity
+	- initial color selection (vs human)
+	- confirmation screen (vs human)
+	- endscreens
 
 
 - make more advanced options
