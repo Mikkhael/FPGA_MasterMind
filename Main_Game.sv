@@ -9,6 +9,7 @@ input wire BTN_RAW_DOWN ,
 input wire BTN_RAW_RIGHT,
 input wire BTN_RAW_UP   ,
 input wire BTN_RAW_ENTER,
+input wire BTN_RAW_DEBUG,
 
 output wire LED0,
 output wire LED1,
@@ -35,17 +36,20 @@ wire BTN_DEB_DOWN  , BTN_EDGE_DOWN;
 wire BTN_DEB_RIGHT , BTN_EDGE_RIGHT;
 wire BTN_DEB_UP    , BTN_EDGE_UP;
 wire BTN_DEB_ENTER , BTN_EDGE_ENTER;
+wire BTN_DEB_DEBUG , BTN_EDGE_DEBUG;
 
 DEBOUNCE deb_left (CLK_PLL, BTN_RAW_LEFT , 	BTN_DEB_LEFT );
 DEBOUNCE deb_down (CLK_PLL, BTN_RAW_DOWN , 	BTN_DEB_DOWN );
 DEBOUNCE deb_right(CLK_PLL, BTN_RAW_RIGHT, 	BTN_DEB_RIGHT);
 DEBOUNCE deb_ip   (CLK_PLL, BTN_RAW_UP   , 	BTN_DEB_UP   );
 DEBOUNCE deb_enter(CLK_PLL, BTN_RAW_ENTER, 	BTN_DEB_ENTER);
+DEBOUNCE deb_debug(CLK_PLL, BTN_RAW_DEBUG, 	BTN_DEB_DEBUG);
 EDGE_NEG edge_left (CLK_PLL, BTN_DEB_LEFT ,  BTN_EDGE_LEFT );
 EDGE_NEG edge_down (CLK_PLL, BTN_DEB_DOWN ,  BTN_EDGE_DOWN );
 EDGE_NEG edge_right(CLK_PLL, BTN_DEB_RIGHT,  BTN_EDGE_RIGHT);
 EDGE_NEG edge_ip   (CLK_PLL, BTN_DEB_UP   ,  BTN_EDGE_UP   );
 EDGE_NEG edge_enter(CLK_PLL, BTN_DEB_ENTER,  BTN_EDGE_ENTER);
+EDGE_NEG edge_debug(CLK_PLL, BTN_DEB_DEBUG,  BTN_EDGE_DEBUG);
 
 
 //reg [4:0] Vals [0:3] = '{default: 5'h0};
@@ -148,9 +152,46 @@ VGA_Game_Renderer vga(CLK_VGA, font_rom_clk, font_rom_addr, font_rom_q, board_ra
 		end \
 	end
 
+	
+task reset_analysis();
+	GS.board.calculated_green  = 0;
+	GS.board.calculated_yellow = 0;
+	GS.board.analyzed_guess  = ({max_pins_count{1'd1}} << GS.options.pins_count);
+	GS.board.analyzed_secret = ({max_pins_count{1'd1}} << GS.options.pins_count);
+endtask
+
+task reset_game(input reg is_vs_human);
+	GS.board.is_vs_human = is_vs_human;
+	GS.board.guessed_count = 0;
+	GS.board.scroll_offset = 0;
+	GS.board.current_guess = '{default: 0}; // This line crashes Quartus Prime, if outsie the Task
+	GS.board.is_guess_entered = 1;
+	GS.board.is_guess_uploading = 0;
+	GS.board.is_guess_uploaded = 0;
+	reset_analysis();
+endtask
+
+
+task analyze_pin_pair(input reg [4:0] g, input reg [4:0] s);
+	if( GS.board.current_guess[g] == GS.board.secret[s] &&
+				   !GS.board.analyzed_secret[s] &&
+				   !GS.board.analyzed_guess [g]) begin
+		GS.board.analyzed_secret[s] = 1;
+		GS.board.analyzed_guess [g] = 1;
+		if(g == s) GS.board.calculated_green  += 1'd1;
+		else       GS.board.calculated_yellow += 1'd1;
+	end
+endtask
+
+reg [7:0] ram_loader_step = 0;
+reg [4:0] loop_i = 0;
+	
 always @(posedge CLK_PLL) begin
 	
+	
 	board_ram_wen = 0;
+	
+	GS.options.debug = BTN_DEB_DEBUG;
 	
 	if(!GS.render.values_updated) begin
 		
@@ -196,9 +237,16 @@ always @(posedge CLK_PLL) begin
 		GS.render.board_border_seperator_length = 5;
 		GS.render.board_exit_subcols_offset = 50;
 		GS.render.board_guess_subcols_offset = 150;
-		
-		
+				
 	end
+	
+	GS.board.secret[0] = 1;
+	GS.board.secret[1] = 1;
+	GS.board.secret[2] = 2;
+	GS.board.secret[3] = 3;
+	GS.board.secret[4] = 2;
+	GS.board.secret[5] = 4;
+	GS.board.secret[6] = 5;
 	
 	case(GS.state_name)
 		GS_MAIN_MENU: begin
@@ -208,13 +256,13 @@ always @(posedge CLK_PLL) begin
 					0: begin // PLAY VS COMPUTER
 						GS.navigation.selected_element = 0;
 						GS.navigation.selected_sub_element = 0;
-						GS.board.is_vs_human = 0;
+						reset_game(0);
 						GS.state_name = GS_GAME;
 					end
 					1: begin // PLAY VS HUMAN
 						GS.navigation.selected_element = 0;
 						GS.navigation.selected_sub_element = 0;
-						GS.board.is_vs_human = 1;
+						reset_game(1);
 						GS.state_name = GS_GAME;
 					end
 					2: begin // OPTIONS
@@ -248,19 +296,83 @@ always @(posedge CLK_PLL) begin
 		end
 		GS_GAME: begin
 			if(BTN_EDGE_ENTER) begin
-				GS.state_name = GS_MAIN_MENU;
-				GS.navigation.selected_element = GS.board.is_vs_human;
 			end
 			
-			if(time_counter[18:0] == 0) begin
-				board_ram_wen = 1;
-				board_ram_waddr = 12'd123;
-				board_ram_data[2:0] = time_counter[21:19];
-			end else if(time_counter[19:0] == 1) begin
-				board_ram_wen = 1;
-				board_ram_waddr = 12'd124;
-				board_ram_data[2:0] = time_counter[21:19];
+			`dec_or_inc_clumped(GS.navigation.selected_element, 0, 1'd1 + GS.options.pins_count, BTN_EDGE_RIGHT, BTN_EDGE_LEFT)
+			`dec_or_inc_clumped(GS.board.scroll_offset, 0, GS.board.guessed_count, BTN_EDGE_UP, BTN_EDGE_DOWN)
+			
+			if(BTN_EDGE_ENTER) begin
+				case(GS.navigation.selected_element)
+					0: begin // EXIT
+						GS.state_name = GS_MAIN_MENU;
+						GS.navigation.selected_element = GS.board.is_vs_human;
+					end
+					1: begin // GUESS
+						if(GS.board.is_guess_uploaded) begin
+							`inc_clumped(GS.board.guessed_count, GS.options.guesses)
+							GS.board.is_guess_entered = 1;
+							GS.board.is_guess_uploaded = 0;
+						end
+					end
+					default: begin // TILES
+						if(GS.board.is_guess_uploaded) begin
+							`inc_rolled(GS.board.current_guess[GS.navigation.selected_element - 2'd2], 1'd0, GS.options.pin_colors - 1'd1)
+							GS.board.is_guess_entered = 1;
+							GS.board.is_guess_uploaded = 0;
+							reset_analysis();
+						end
+					end
+				endcase
 			end
+			
+			ram_loader_step = time_counter[7:0];
+			
+			// Load current Guess to RAM
+			if(ram_loader_step == 0 && GS.board.is_guess_entered) begin
+				GS.board.is_guess_entered = 0;
+				GS.board.is_guess_uploading = 1;
+				GS.board.is_guess_uploaded = 0;
+			end
+			if(ram_loader_step < GS.options.pins_count && GS.board.is_guess_uploading) begin
+				board_ram_wen = 1;
+				board_ram_waddr = max_pins_count;
+				board_ram_waddr *= GS.board.guessed_count;
+				board_ram_waddr += ram_loader_step;
+				board_ram_data  = GS.board.current_guess[ram_loader_step];
+				
+				for(loop_i = 0; loop_i < max_pins_count; loop_i++) begin
+					analyze_pin_pair(loop_i, (loop_i + ram_loader_step) % max_pins_count);
+				end
+				
+			end 
+			if(ram_loader_step == GS.options.pins_count + 3'd0 && GS.board.is_guess_uploading) begin
+				board_ram_wen = 1;
+				board_ram_waddr = GS.board.guessed_count;
+				board_ram_waddr *= 2;
+				board_ram_waddr += ram_hints_offset;
+				board_ram_data  = GS.board.calculated_yellow;
+			end
+			if(ram_loader_step == GS.options.pins_count + 3'd1 && GS.board.is_guess_uploading) begin
+				board_ram_wen = 1;
+				board_ram_waddr = GS.board.guessed_count;
+				board_ram_waddr *= 2;
+				board_ram_waddr += ram_hints_offset + 1'd1;
+				board_ram_data  = GS.board.calculated_green;
+			end
+			if(ram_loader_step == GS.options.pins_count + 3'd2 && !GS.board.is_guess_entered) begin
+				GS.board.is_guess_uploading = 0;
+				GS.board.is_guess_uploaded = 1;
+			end
+			
+//			if(time_counter[18:0] == 0) begin
+//				board_ram_wen = 1;
+//				board_ram_waddr = 12'd123;
+//				board_ram_data[2:0] = time_counter[21:19];
+//			end else if(time_counter[19:0] == 1) begin
+//				board_ram_wen = 1;
+//				board_ram_waddr = 12'd124;
+//				board_ram_data[2:0] = time_counter[21:19];
+//			end
 		end
 	endcase
 
@@ -269,9 +381,13 @@ always @(posedge CLK_PLL) begin
 //	Vals[2][4] = 1;
 //	Vals[3][3:0] = GS.state_name;
 	
-	LEDS[3:0] = time_counter[22:19];
+	LEDS[0] = GS.board.is_guess_entered;
+	LEDS[1] = GS.board.is_guess_uploading;
+	LEDS[2] = GS.board.is_guess_uploaded;
+	LEDS[3] = time_counter[19];
 	
-	
+	//LEDS[2:0] = ram_loader_step[2:0];
+	LEDS[3]   = ram_loader_step < GS.options.pins_count;
 	
 	if(VGA_VSYNC) begin
 		GS_vga = GS;

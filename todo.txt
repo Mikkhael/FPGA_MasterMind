@@ -17,7 +17,7 @@
 - game
 	+ layout
 	- auto layout calculation
-	- ram interactivity
+	+ ram interactivity
 	- initial color selection (vs human)
 	- confirmation screen (vs human)
 	- endscreens

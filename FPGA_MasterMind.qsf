@@ -125,4 +125,5 @@ set_location_assignment PIN_H15 -to BTN_RAW_UP
 set_location_assignment PIN_H16 -to BTN_RAW_ENTER
 set_global_assignment -name QIP_FILE BOARD_RAM.qip
 set_global_assignment -name MIF_FILE ram_zeros.mif
+set_location_assignment PIN_B15 -to BTN_RAW_DEBUG
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top

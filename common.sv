@@ -31,10 +31,9 @@ parameter GS_MAIN_MENU_ELEMENTS = 3;
 // Highscores = 2
 
 typedef struct {
-	reg [3:0] selected_element;
-	reg [3:0] selected_sub_element;
+	reg [7:0] selected_element;
+	reg [7:0] selected_sub_element;
 	reg is_selected_sub;
-	reg is_selected_scroll;
 } st_GS_NAVIGATION;
 
 parameter reg [2:0] PIX_VALUE_W = 3'd6;
@@ -50,7 +49,9 @@ typedef struct {
 	reg [7:0] guesses;
 	reg [PIX_VALUE_W-1:0] PIX_W;	
 	reg [PIX_VALUE_W-1:0] PIX_H;  
-	reg [2:0] palette_id;   		
+	reg [2:0] palette_id; 
+
+	reg debug;  		
 } st_GS_OPTIONS;
 
 
@@ -61,11 +62,15 @@ typedef struct {
 	reg [7:0] current_guess [0:max_pins_count-1];
 	
 	reg is_guess_entered;
+	reg is_guess_uploading;
 	reg is_guess_uploaded;
 	
 	reg [7:0] calculated_green;
 	reg [7:0] calculated_yellow;
 	
+	reg [max_pins_count-1:0] analyzed_guess;
+	reg [max_pins_count-1:0] analyzed_secret;
+
 	reg [7:0] secret [0:max_pins_count-1];
 } st_GS_BOARD;
 
