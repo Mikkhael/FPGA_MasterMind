@@ -5,13 +5,12 @@
 	- controls
 + change pixels width dynamically
 + add macros/functions for strings display  
-- randomness
-	- algorithm
-	- title
-	- secret
++ randomness
+	+ algorithm
+	? secret
 - preety background
 + remove warnings with overflow
-? fix bug with incorect resizing (when in options with big pixels)
++ fix bug with incorect resizing (when in options with big pixels)
 
 + buttons
 - game
@@ -21,6 +20,8 @@
 	- initial color selection (vs human)
 	- confirmation screen (vs human)
 	- endscreens
+	- preaty border
+	- preaty backgound
 
 
 - make more advanced options

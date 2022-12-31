@@ -43,7 +43,7 @@ DEBOUNCE deb_down (CLK_PLL, BTN_RAW_DOWN , 	BTN_DEB_DOWN );
 DEBOUNCE deb_right(CLK_PLL, BTN_RAW_RIGHT, 	BTN_DEB_RIGHT);
 DEBOUNCE deb_ip   (CLK_PLL, BTN_RAW_UP   , 	BTN_DEB_UP   );
 DEBOUNCE deb_enter(CLK_PLL, BTN_RAW_ENTER, 	BTN_DEB_ENTER);
-DEBOUNCE deb_debug(CLK_PLL, BTN_RAW_DEBUG, 	BTN_DEB_DEBUG);
+DEBOUNCE deb_debug(CLK_PLL, ~BTN_RAW_DEBUG, 	BTN_DEB_DEBUG);
 EDGE_NEG edge_left (CLK_PLL, BTN_DEB_LEFT ,  BTN_EDGE_LEFT );
 EDGE_NEG edge_down (CLK_PLL, BTN_DEB_DOWN ,  BTN_EDGE_DOWN );
 EDGE_NEG edge_right(CLK_PLL, BTN_DEB_RIGHT,  BTN_EDGE_RIGHT);
@@ -99,6 +99,13 @@ st_GS_DECIMALIZED GS_vga_decim;
 GS_DECIMALIZER GS_vga_decimalizer(GS_vga, GS_vga_decim);
 
 
+reg has_updated_seed = 0;
+reg [31:0] rng_new_seed = 0;
+reg rng_en = 1;
+wire [31:0] rng_out;
+RNG rng(CLK_PLL, rng_en, rng_new_seed, rng_out);
+//
+reg [4:0] generated_secret_pins = 0;
 
 
 VGA_Game_Renderer vga(CLK_VGA, font_rom_clk, font_rom_addr, font_rom_q, board_ram_rclk, board_ram_raddr, board_ram_q, GS_vga, GS_vga_decim, time_counter, {VGA_R, VGA_G, VGA_B}, VGA_HSYNC, VGA_VSYNC);
@@ -190,6 +197,7 @@ always @(posedge CLK_PLL) begin
 	
 	
 	board_ram_wen = 0;
+	rng_new_seed = 0;
 	
 	GS.options.debug = BTN_DEB_DEBUG;
 	
@@ -240,13 +248,14 @@ always @(posedge CLK_PLL) begin
 				
 	end
 	
-	GS.board.secret[0] = 1;
-	GS.board.secret[1] = 1;
-	GS.board.secret[2] = 2;
-	GS.board.secret[3] = 3;
-	GS.board.secret[4] = 2;
-	GS.board.secret[5] = 4;
-	GS.board.secret[6] = 5;
+//	GS.board.secret[0] = 1;
+//	GS.board.secret[1] = 1;
+//	GS.board.secret[2] = 2;
+//	GS.board.secret[3] = 3;
+//	GS.board.secret[4] = 2;
+//	GS.board.secret[5] = 4;
+//	GS.board.secret[6] = 5;
+
 	
 	case(GS.state_name)
 		GS_MAIN_MENU: begin
@@ -257,7 +266,12 @@ always @(posedge CLK_PLL) begin
 						GS.navigation.selected_element = 0;
 						GS.navigation.selected_sub_element = 0;
 						reset_game(0);
-						GS.state_name = GS_GAME;
+						if(!has_updated_seed) begin
+							has_updated_seed = 1;
+							rng_new_seed = time_counter;
+						end
+						generated_secret_pins = 0;
+						GS.state_name = GS_GENERATE_PINS;
 					end
 					1: begin // PLAY VS HUMAN
 						GS.navigation.selected_element = 0;
@@ -295,9 +309,6 @@ always @(posedge CLK_PLL) begin
 			endcase
 		end
 		GS_GAME: begin
-			if(BTN_EDGE_ENTER) begin
-			end
-			
 			`dec_or_inc_clumped(GS.navigation.selected_element, 0, 1'd1 + GS.options.pins_count, BTN_EDGE_RIGHT, BTN_EDGE_LEFT)
 			`dec_or_inc_clumped(GS.board.scroll_offset, 0, GS.board.guessed_count, BTN_EDGE_UP, BTN_EDGE_DOWN)
 			
@@ -340,7 +351,7 @@ always @(posedge CLK_PLL) begin
 				board_ram_waddr += ram_loader_step;
 				board_ram_data  = GS.board.current_guess[ram_loader_step];
 				
-				for(loop_i = 0; loop_i < max_pins_count; loop_i++) begin
+				for(loop_i = 0; loop_i < max_pins_count; loop_i++) begin // TODO
 					analyze_pin_pair(loop_i, (loop_i + ram_loader_step) % max_pins_count);
 				end
 				
@@ -374,6 +385,14 @@ always @(posedge CLK_PLL) begin
 //				board_ram_data[2:0] = time_counter[21:19];
 //			end
 		end
+		GS_GENERATE_PINS: begin
+			if(generated_secret_pins >= GS.options.pins_count) begin
+				GS.state_name = GS_GAME;
+			end else begin
+				GS.board.secret[generated_secret_pins] = rng_out[7:0] % GS.options.pin_colors;
+				generated_secret_pins += 1'd1;
+			end
+		end
 	endcase
 
 //	Vals[0][3:0] = GS.navigation.selected_element;
@@ -389,7 +408,7 @@ always @(posedge CLK_PLL) begin
 	//LEDS[2:0] = ram_loader_step[2:0];
 	LEDS[3]   = ram_loader_step < GS.options.pins_count;
 	
-	if(VGA_VSYNC) begin
+	if(VGA_VSYNC && GS.state_name != GS_GENERATE_PINS) begin
 		GS_vga = GS;
 	end
 	

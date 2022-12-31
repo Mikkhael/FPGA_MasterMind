@@ -20,7 +20,7 @@ parameter V_TIME_TOTAL = RES_V + BLK_VF + BLK_VT + BLK_VB;
 //// Game State Machine Types ////
 
 
-typedef enum logic [1:0] {GS_MAIN_MENU, GS_OPTIONS, GS_GAME} GAME_STATE_NAME;
+typedef enum logic [2:0] {GS_MAIN_MENU, GS_OPTIONS, GS_GAME, GS_GENERATE_PINS} GAME_STATE_NAME;
 
 parameter GS_MAIN_MENU_ELEMENTS = 3;
 
