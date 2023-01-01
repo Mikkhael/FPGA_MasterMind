@@ -1,5 +1,3 @@
-
-
 module Main_Game(
 
 input wire CLK0,
@@ -21,7 +19,6 @@ output reg VGA_G = 0,
 output reg VGA_B = 0,
 output reg VGA_HSYNC = 0,
 output reg VGA_VSYNC = 0
-
 );
 
 wire pll_areset = 0;
@@ -38,12 +35,14 @@ wire BTN_DEB_UP    , BTN_EDGE_UP;
 wire BTN_DEB_ENTER , BTN_EDGE_ENTER;
 wire BTN_DEB_DEBUG , BTN_EDGE_DEBUG;
 
+wire BTN_RAW_DEBUG_NEGATED = ~BTN_RAW_DEBUG;
+
 DEBOUNCE deb_left (CLK_PLL, BTN_RAW_LEFT , 	BTN_DEB_LEFT );
 DEBOUNCE deb_down (CLK_PLL, BTN_RAW_DOWN , 	BTN_DEB_DOWN );
 DEBOUNCE deb_right(CLK_PLL, BTN_RAW_RIGHT, 	BTN_DEB_RIGHT);
 DEBOUNCE deb_ip   (CLK_PLL, BTN_RAW_UP   , 	BTN_DEB_UP   );
 DEBOUNCE deb_enter(CLK_PLL, BTN_RAW_ENTER, 	BTN_DEB_ENTER);
-DEBOUNCE deb_debug(CLK_PLL, ~BTN_RAW_DEBUG, 	BTN_DEB_DEBUG);
+DEBOUNCE deb_debug(CLK_PLL, BTN_RAW_DEBUG_NEGATED, 	BTN_DEB_DEBUG);
 EDGE_NEG edge_left (CLK_PLL, BTN_DEB_LEFT ,  BTN_EDGE_LEFT );
 EDGE_NEG edge_down (CLK_PLL, BTN_DEB_DOWN ,  BTN_EDGE_DOWN );
 EDGE_NEG edge_right(CLK_PLL, BTN_DEB_RIGHT,  BTN_EDGE_RIGHT);
@@ -92,7 +91,6 @@ st_GAME_STATE GS = '{default:0,
 		palette: palettes[0]
 	}
 };
-
 st_GAME_STATE GS_vga;
 
 st_GS_DECIMALIZED GS_vga_decim;
@@ -104,8 +102,13 @@ reg [31:0] rng_new_seed = 0;
 reg rng_en = 1;
 wire [31:0] rng_out;
 RNG rng(CLK_PLL, rng_en, rng_new_seed, rng_out);
-//
+
 reg [4:0] generated_secret_pins = 0;
+
+localparam RNG_MOD_W = 8;
+function [PIN_COLOR_W-1:0] truncate_rng_mod_to_pin_color(input [RNG_MOD_W-1:0] val);
+	truncate_rng_mod_to_pin_color = val[PIN_COLOR_W-1:0];
+endfunction
 
 
 VGA_Game_Renderer vga(CLK_VGA, font_rom_clk, font_rom_addr, font_rom_q, board_ram_rclk, board_ram_raddr, board_ram_q, GS_vga, GS_vga_decim, time_counter, {VGA_R, VGA_G, VGA_B}, VGA_HSYNC, VGA_VSYNC);
@@ -163,8 +166,8 @@ VGA_Game_Renderer vga(CLK_VGA, font_rom_clk, font_rom_addr, font_rom_q, board_ra
 task reset_analysis();
 	GS.board.calculated_green  = 0;
 	GS.board.calculated_yellow = 0;
-	GS.board.analyzed_guess  = ({max_pins_count{1'd1}} << GS.options.pins_count);
-	GS.board.analyzed_secret = ({max_pins_count{1'd1}} << GS.options.pins_count);
+	GS.board.analyzed_guess  = 0; //({max_pins_count{1'd1}} << GS.options.pins_count);
+	GS.board.analyzed_secret = 0; //({max_pins_count{1'd1}} << GS.options.pins_count);
 endtask
 
 task reset_game(input reg is_vs_human);
@@ -179,22 +182,40 @@ task reset_game(input reg is_vs_human);
 endtask
 
 
-task analyze_pin_pair(input reg [4:0] g, input reg [4:0] s);
+task analyze_pin_pair_same(input [PIN_POS_W-1:0] index);
+	if(index >= GS.options.pins_count) begin
+		GS.board.analyzed_secret[index] = 1;
+		GS.board.analyzed_guess [index] = 1;
+	end else if( GS.board.current_guess[index] == GS.board.secret[index] &&
+				   !GS.board.analyzed_secret[index] &&
+				   !GS.board.analyzed_guess [index]) begin
+		GS.board.analyzed_secret[index] = 1;
+		GS.board.analyzed_guess [index] = 1;
+		GS.board.calculated_green += 1'd1;
+	end
+endtask
+
+task analyze_pin_pair_different(input [PIN_POS_W-1:0] g, input [PIN_POS_W-1:0] s);
 	if( GS.board.current_guess[g] == GS.board.secret[s] &&
 				   !GS.board.analyzed_secret[s] &&
 				   !GS.board.analyzed_guess [g]) begin
 		GS.board.analyzed_secret[s] = 1;
 		GS.board.analyzed_guess [g] = 1;
-		if(g == s) GS.board.calculated_green  += 1'd1;
-		else       GS.board.calculated_yellow += 1'd1;
+		GS.board.calculated_yellow += 1'd1;
 	end
 endtask
 
-reg [7:0] ram_loader_step = 0;
-reg [4:0] loop_i = 0;
+// PIN_POS_W = 5
+// [(PIN_POS_W*2):0] = 11
+// CLK_T = 1/500000 s
+// Ram_Upload_T = CLK_T * 2^11 = 4.096 ms
+
+reg [(PIN_POS_W*2):0] ram_loader_step = 0;
+wire [PIN_POS_W-1:0] ram_loader_step_low    = ram_loader_step[PIN_POS_W-1:0];
+wire [PIN_POS_W-1:0] ram_loader_step_high   = ram_loader_step[(2*PIN_POS_W)-1:PIN_POS_W];
+wire ram_loader_step_differnt_hints_section = ram_loader_step[2*PIN_POS_W];
 	
 always @(posedge CLK_PLL) begin
-	
 	
 	board_ram_wen = 0;
 	rng_new_seed = 0;
@@ -300,8 +321,8 @@ always @(posedge CLK_PLL) begin
 						GS.state_name = GS_MAIN_MENU;
 					end
 				end
-				1: `decimal_option_manipulation_routine(pin_colors, 2'd2, max_pin_colors,  4'd8) // PIN COLORS
-				2: `decimal_option_manipulation_routine(pins_count, 2'd2, max_pins_count,  4'd8) // PINS COUNT
+				1: `decimal_option_manipulation_routine(pin_colors, 2'd2, max_pin_colors,  PIN_COLOR_W) // PIN COLORS
+				2: `decimal_option_manipulation_routine(pins_count, 2'd2, max_pins_count,  PIN_POS_W) // PINS COUNT
 				3: `decimal_option_manipulation_routine(guesses,    2'd2, max_guesses, 4'd8) // GUESSES
 				4: `decimal_option_manipulation_routine(PIX_W, 1'd1, 5'd25, PIX_VALUE_W) // PIXEL WIDTH
 				5: `decimal_option_manipulation_routine(PIX_H, 1'd1, 5'd25, PIX_VALUE_W) // PIXEL HEIGHT
@@ -323,6 +344,7 @@ always @(posedge CLK_PLL) begin
 							`inc_clumped(GS.board.guessed_count, GS.options.guesses)
 							GS.board.is_guess_entered = 1;
 							GS.board.is_guess_uploaded = 0;
+							reset_analysis();
 						end
 					end
 					default: begin // TILES
@@ -336,60 +358,50 @@ always @(posedge CLK_PLL) begin
 				endcase
 			end
 			
-			ram_loader_step = time_counter[7:0];
+			ram_loader_step = time_counter[(PIN_POS_W*2):0];
 			
 			// Load current Guess to RAM
-			if(ram_loader_step == 0 && GS.board.is_guess_entered) begin
+			if(ram_loader_step == 0 && GS.board.is_guess_entered) begin // Begin loading to RAM
 				GS.board.is_guess_entered = 0;
 				GS.board.is_guess_uploading = 1;
 				GS.board.is_guess_uploaded = 0;
 			end
-			if(ram_loader_step < GS.options.pins_count && GS.board.is_guess_uploading) begin
-				board_ram_wen = 1;
-				board_ram_waddr = max_pins_count;
-				board_ram_waddr *= GS.board.guessed_count;
-				board_ram_waddr += ram_loader_step;
-				board_ram_data  = GS.board.current_guess[ram_loader_step];
-				
-				for(loop_i = 0; loop_i < max_pins_count; loop_i++) begin // TODO
-					analyze_pin_pair(loop_i, (loop_i + ram_loader_step) % max_pins_count);
+			if(GS.board.is_guess_uploading) begin
+				if(ram_loader_step < max_pins_count) begin // Upload all pin colors
+					board_ram_wen = 1;
+					board_ram_waddr = max_pins_count;
+					board_ram_waddr *= GS.board.guessed_count;
+					board_ram_waddr += ram_loader_step;
+					board_ram_data  = GS.board.current_guess[ram_loader_step[PIN_POS_W-1:0]];
+					
+					analyze_pin_pair_same(ram_loader_step[PIN_POS_W-1:0]); // Also calculate green hints
 				end
-				
-			end 
-			if(ram_loader_step == GS.options.pins_count + 3'd0 && GS.board.is_guess_uploading) begin
-				board_ram_wen = 1;
-				board_ram_waddr = GS.board.guessed_count;
-				board_ram_waddr *= 2;
-				board_ram_waddr += ram_hints_offset;
-				board_ram_data  = GS.board.calculated_yellow;
+				if(ram_loader_step_differnt_hints_section) begin // Check, if at yelow hints section
+					if(ram_loader_step_high == max_pins_count) begin // If all combination have been analyzed
+						if(ram_loader_step_low[PIN_POS_W-1:1] == 0) begin
+							board_ram_wen = 1;
+							board_ram_waddr = GS.board.guessed_count;
+							board_ram_waddr *= 2;
+							board_ram_waddr += ram_hints_offset + ram_loader_step_low[0];
+							board_ram_data  = (ram_loader_step_low[0] ? GS.board.calculated_green : GS.board.calculated_yellow);
+						end
+					end else if(ram_loader_step_low  < max_pins_count &&
+									ram_loader_step_high < max_pins_count &&
+									ram_loader_step_low != ram_loader_step_high) begin 
+						analyze_pin_pair_different(ram_loader_step_high, ram_loader_step_low);
+					end
+				end
+				if((ram_loader_step == -11'd1) && !GS.board.is_guess_entered) begin // End uploading, if no new request is present
+					GS.board.is_guess_uploading = 0;
+					GS.board.is_guess_uploaded = 1;
+				end
 			end
-			if(ram_loader_step == GS.options.pins_count + 3'd1 && GS.board.is_guess_uploading) begin
-				board_ram_wen = 1;
-				board_ram_waddr = GS.board.guessed_count;
-				board_ram_waddr *= 2;
-				board_ram_waddr += ram_hints_offset + 1'd1;
-				board_ram_data  = GS.board.calculated_green;
-			end
-			if(ram_loader_step == GS.options.pins_count + 3'd2 && !GS.board.is_guess_entered) begin
-				GS.board.is_guess_uploading = 0;
-				GS.board.is_guess_uploaded = 1;
-			end
-			
-//			if(time_counter[18:0] == 0) begin
-//				board_ram_wen = 1;
-//				board_ram_waddr = 12'd123;
-//				board_ram_data[2:0] = time_counter[21:19];
-//			end else if(time_counter[19:0] == 1) begin
-//				board_ram_wen = 1;
-//				board_ram_waddr = 12'd124;
-//				board_ram_data[2:0] = time_counter[21:19];
-//			end
 		end
 		GS_GENERATE_PINS: begin
-			if(generated_secret_pins >= GS.options.pins_count) begin
+			if(generated_secret_pins >= max_pins_count) begin
 				GS.state_name = GS_GAME;
 			end else begin
-				GS.board.secret[generated_secret_pins] = rng_out[7:0] % GS.options.pin_colors;
+				GS.board.secret[generated_secret_pins] = truncate_rng_mod_to_pin_color(rng_out[RNG_MOD_W-1:0] % GS.options.pin_colors);
 				generated_secret_pins += 1'd1;
 			end
 		end

@@ -37,15 +37,17 @@ typedef struct {
 } st_GS_NAVIGATION;
 
 parameter reg [2:0] PIX_VALUE_W = 3'd6;
-parameter reg [7:0] max_pin_colors = 8'd21;
-parameter reg [7:0] max_pins_count = 8'd20;
+parameter reg [2:0] PIN_COLOR_W = 3'd5;
+parameter reg [2:0] PIN_POS_W   = 3'd5;
+parameter reg [PIN_COLOR_W-1:0] max_pin_colors = 5'd21;
+parameter reg [PIN_POS_W-1:0]   max_pins_count = 5'd20;
 parameter reg [7:0] max_guesses    = 8'd99;
 
 parameter reg [11:0] ram_hints_offset = max_pins_count * max_guesses;
 
 typedef struct {
-	reg [7:0] pin_colors;
-	reg [7:0] pins_count;
+	reg [PIN_COLOR_W-1:0] pin_colors;
+	reg [PIN_POS_W-1:0]   pins_count;
 	reg [7:0] guesses;
 	reg [PIX_VALUE_W-1:0] PIX_W;	
 	reg [PIX_VALUE_W-1:0] PIX_H;  
@@ -59,19 +61,19 @@ typedef struct {
 	reg is_vs_human;
 	reg [7:0] guessed_count;
 	reg [7:0] scroll_offset;
-	reg [7:0] current_guess [0:max_pins_count-1];
+	reg [PIN_COLOR_W-1:0] current_guess [0:max_pins_count-1];
 	
 	reg is_guess_entered;
 	reg is_guess_uploading;
 	reg is_guess_uploaded;
 	
-	reg [7:0] calculated_green;
-	reg [7:0] calculated_yellow;
+	reg [PIN_POS_W-1:0] calculated_green;
+	reg [PIN_POS_W-1:0] calculated_yellow;
 	
 	reg [max_pins_count-1:0] analyzed_guess;
 	reg [max_pins_count-1:0] analyzed_secret;
 
-	reg [7:0] secret [0:max_pins_count-1];
+	reg [PIN_COLOR_W-1:0] secret [0:max_pins_count-1];
 } st_GS_BOARD;
 
 typedef struct {
@@ -140,8 +142,8 @@ module GS_DECIMALIZER(
 	output st_GS_DECIMALIZED GS_decim
 );
 
-	DIV_MOD #(.W_in(8), .W_div(4))           dm1(GS.options.pin_colors, GS_decim.options_pin_colors[0], GS_decim.options_pin_colors[1]);
-	DIV_MOD #(.W_in(8), .W_div(4))           dm2(GS.options.pins_count, GS_decim.options_pins_count[0], GS_decim.options_pins_count[1]);
+	DIV_MOD #(.W_in(PIN_COLOR_W), .W_div(4)) dm1(GS.options.pin_colors, GS_decim.options_pin_colors[0], GS_decim.options_pin_colors[1]);
+	DIV_MOD #(.W_in(PIN_POS_W),   .W_div(4)) dm2(GS.options.pins_count, GS_decim.options_pins_count[0], GS_decim.options_pins_count[1]);
 	DIV_MOD #(.W_in(8), .W_div(4))           dm3(GS.options.guesses, GS_decim.options_guesses[0], GS_decim.options_guesses[1]);
 	DIV_MOD #(.W_in(PIX_VALUE_W), .W_div(4)) dm4(GS.options.PIX_W, GS_decim.options_PIX_W[0], GS_decim.options_PIX_W[1]);
 	DIV_MOD #(.W_in(PIX_VALUE_W), .W_div(4)) dm5(GS.options.PIX_H, GS_decim.options_PIX_H[0], GS_decim.options_PIX_H[1]);

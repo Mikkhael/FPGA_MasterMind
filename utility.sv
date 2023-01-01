@@ -79,7 +79,7 @@ endmodule
 
 module DIV_MOD #(
 	parameter base = 4'd10,
-	parameter W_in  = ADDR_W,
+	parameter W_in  = 4'd9,
 	parameter W_mod = 4'd4,
 	parameter W_div = W_in
 )(
