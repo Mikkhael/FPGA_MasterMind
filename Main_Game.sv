@@ -219,7 +219,7 @@ wire [PIN_POS_W-1:0] ram_loader_step_low    = ram_loader_step[PIN_POS_W-1:0];
 wire [PIN_POS_W-1:0] ram_loader_step_high   = ram_loader_step[(2*PIN_POS_W)-1:PIN_POS_W];
 wire ram_loader_step_differnt_hints_section = ram_loader_step[2*PIN_POS_W];
 
-reg signed [6:0] tile_pix_width_add = 0;
+reg check_for_win = 0;
 
 always @(posedge CLK_PLL) begin
 	
@@ -230,15 +230,15 @@ always @(posedge CLK_PLL) begin
 	
 	if(BTN_EDGE_DEBUG) begin
 		if(!BTN_DEB_DOWN && BTN_DEB_UP) begin
-			
-			tile_pix_width_add += BTN_DEB_LEFT ? (BTN_DEB_RIGHT ? 1'd0 : 1'd1) : -1'd1;
-			
-			if(BTN_DEB_LEFT && BTN_DEB_RIGHT) begin
+//			
+//			tile_pix_width_add += BTN_DEB_LEFT ? (BTN_DEB_RIGHT ? 1'd0 : 1'd1) : -1'd1;
+//			
+//			if(BTN_DEB_LEFT && BTN_DEB_RIGHT) begin
 				GS.options.palette_id += 1'd1;
 				if(GS.options.palette_id >= palettes_count) begin
 					GS.options.palette_id = 1'd0;
 				end
-			end
+//			end
 			GS.render.values_updated = 0;
 			
 		end else if(BTN_DEB_DOWN && !BTN_DEB_UP) begin
@@ -309,7 +309,7 @@ always @(posedge CLK_PLL) begin
 		
 			// Tiles
 		GS.render.board_tiles_subcols_available = RES_H - (((FONT_W+1'd1) * 11'd7 + 11'd6) * GS.options.PIX_W);
-		GS.render.board_tile_pix_width = truncate_11_to_PIXEL_W(GS.render.board_tiles_subcols_available / (GS.options.pins_count * (FONT_W + 10'd1)) + tile_pix_width_add);
+		GS.render.board_tile_pix_width = truncate_11_to_PIXEL_W(GS.render.board_tiles_subcols_available / (GS.options.pins_count * (FONT_W + 10'd1)));
 		if(GS.render.board_tile_pix_width > GS.options.PIX_W*3'd4) GS.render.board_tile_pix_width = GS.options.PIX_W*3'd4;
 		if(GS.render.board_tile_pix_width == 0) GS.render.board_tile_pix_width = 1;
 		GS.render.board_tiles_subcols_offset = GS.render.board_border2_subcols_offset - (GS.render.board_tile_pix_width * (FONT_W + 1'd1) * GS.options.pins_count);
@@ -323,6 +323,7 @@ always @(posedge CLK_PLL) begin
 
 			// Tiles Dialog
 		GS.render.board_tiles_dialog_charlines_offset = 2;
+		GS.render.board_text_dialog_charlines_offset  = 1;
 		GS.render.board_tiles_dialog_width  = (GS.options.pin_colors < 10 ? 3'd3 : (GS.options.pin_colors < 17 ? 3'd4 : 3'd5));
 		GS.render.board_tiles_dialog_height = (GS.options.pin_colors - 1'd1) / GS.render.board_tiles_dialog_width + 1'd1;
 		GS.render.board_tiles_dialog_subcols_end = GS.render.board_tiles_dialog_width * (FONT_W + 1'd1) * GS.options.PIX_W;
@@ -347,6 +348,7 @@ always @(posedge CLK_PLL) begin
 					0: begin // PLAY VS COMPUTER
 						GS.navigation.selected_element = 0;
 						GS.navigation.selected_sub_element = 0;
+						GS.board.dial_state = DIAL_NONE;
 						reset_game(0);
 						if(!has_updated_seed) begin
 							has_updated_seed = 1;
@@ -358,6 +360,7 @@ always @(posedge CLK_PLL) begin
 					1: begin // PLAY VS HUMAN
 						GS.navigation.selected_element = 0;
 						GS.navigation.selected_sub_element = 0;
+						GS.board.dial_state = DIAL_ENTERSECRET;
 						reset_game(1);
 						GS.state_name = GS_GAME;
 					end
@@ -413,12 +416,22 @@ always @(posedge CLK_PLL) begin
 						end
 						1: begin // GUESS
 							if(GS.board.is_guess_uploaded) begin
-								`inc_clumped(GS.board.guessed_count, GS.options.guesses)
-								GS.board.is_guess_entered = 1;
-								GS.board.is_guess_uploaded = 0;
-								reset_analysis();
-								if(GS.board.guessed_count >= GS.board.scroll_offset + GS.render.charlines) begin
-									GS.board.scroll_offset = GS.board.guessed_count - GS.render.charlines[7:0] + 1'd1;
+								if(GS.board.dial_state == DIAL_NONE) begin
+									`inc_clumped(GS.board.guessed_count, GS.options.guesses)
+									GS.board.is_guess_entered = 1;
+									GS.board.is_guess_uploaded = 0;
+									check_for_win = 1;
+									reset_analysis();
+									if(GS.board.guessed_count >= GS.board.scroll_offset + GS.render.charlines) begin
+										GS.board.scroll_offset = GS.board.guessed_count - GS.render.charlines[7:0] + 1'd1;
+									end
+								end else if(GS.board.dial_state == DIAL_ENTERSECRET) begin
+									GS.board.secret = GS.board.current_guess;
+									GS.board.dial_state = DIAL_NONE;
+									GS.board.current_guess = '{default: 0};
+									GS.board.is_guess_entered = 1;
+									GS.board.is_guess_uploaded = 0;
+									reset_analysis();
 								end
 							end
 						end
@@ -468,6 +481,25 @@ always @(posedge CLK_PLL) begin
 				if((ram_loader_step == -11'd1) && !GS.board.is_guess_entered) begin // End uploading, if no new request is present
 					GS.board.is_guess_uploading = 0;
 					GS.board.is_guess_uploaded = 1;
+					
+					if(check_for_win) begin
+						if(GS.board.is_vs_human) begin
+							if(GS.board.calculated_green == GS.options.pins_count) begin
+								GS.board.dial_state = DIAL_GUESSER;
+							end else if(GS.board.guessed_count >= GS.options.guesses) begin
+								GS.board.dial_state = DIAL_SETTER;
+							end
+						end else begin
+							if(GS.board.calculated_green == GS.options.pins_count) begin
+								GS.board.dial_state = DIAL_YOUWIN;
+							end else if(GS.board.guessed_count >= GS.options.guesses) begin
+								GS.board.dial_state = DIAL_YOULOSE;
+							end
+						end
+						check_for_win = 0;
+					end
+					
+					
 				end
 			end
 		end

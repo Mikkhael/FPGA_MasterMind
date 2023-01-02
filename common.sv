@@ -56,6 +56,9 @@ typedef struct {
 	reg debug;  		
 } st_GS_OPTIONS;
 
+typedef enum logic [3:0] {
+	DIAL_NONE, DIAL_YOUWIN, DIAL_YOULOSE, DIAL_ENTERSECRET, 
+	DIAL_HINTSGREEN, DIAL_HINTSYELLOW, DIAL_GUESSER, DIAL_SETTER} DIAL_STATE;
 
 typedef struct {
 	reg is_vs_human;
@@ -66,6 +69,8 @@ typedef struct {
 	reg is_guess_entered;
 	reg is_guess_uploading;
 	reg is_guess_uploaded;
+	
+	DIAL_STATE dial_state;
 	
 	reg [PIN_POS_W-1:0] calculated_green;
 	reg [PIN_POS_W-1:0] calculated_yellow;
@@ -115,6 +120,7 @@ typedef struct {
 	reg [PIN_COLOR_W-1:0] board_tiles_dialog_height;
 	reg [10:0] board_tiles_dialog_charlines_offset;
 	reg [10:0] board_tiles_dialog_subcols_end;
+	reg [10:0] board_text_dialog_charlines_offset;
 	// Palette
 	st_GS_PALETTE palette;
 } st_GS_RENDER;

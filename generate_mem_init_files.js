@@ -285,6 +285,27 @@ const FONT_DATA = [
         '1111',
         '1.1.',
     ]],
+    ['Exclemation', [
+        `.1..`,
+        `.1..`,
+        `.1..`,
+        '....',
+        '.1..',
+    ]],
+    ['Colon', [
+        `....`,
+        `.11.`,
+        `....`,
+        '.11.',
+        '....',
+    ]],
+    ['LeftBracket', [
+        `.11.`,
+        `11..`,
+        `11..`,
+        '11..',
+        '.11.',
+    ]],
     ['ArrowR', [
         `11..`,
         `.11.`,
@@ -345,6 +366,14 @@ const STRINGS = [
     ['EXIT',  ['X']],
 
     ['BACK', ['ArrowL', 'ArrowL', ...S(' BACK '), 'ArrowL', 'ArrowL']],
+
+    ['YOUWIN',  [...S('YOU WIN'), 'Exclemation', 'Exclemation']],
+    ['GAMEOVER', [...S('GAME OVER '), 'Colon', 'LeftBracket']],
+    ['ENTERSECRET', [...S('ENTER SECRET'), 'Colon']],
+    ['HINTSGREEN', [...S('HINTS GREEN'), 'Colon', ' ']],
+    ['HINTSYELLOW', [...S('HINTS YELLOW'), 'Colon']],
+    ['GUESSER', [...S('GUESSER WINS'), 'Exclemation']],
+    ['SETTER', [...S('SETTER WINS'), 'Exclemation']],
 
     ['PIN COLORS'],
     ['PINS COUNT'],

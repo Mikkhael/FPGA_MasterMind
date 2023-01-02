@@ -7,20 +7,21 @@
 + add macros/functions for strings display  
 + randomness
 	+ algorithm
-	? secret
+	+ secret
 - preety background
 + remove warnings with overflow
 + fix bug with incorect resizing (when in options with big pixels)
 
 + buttons
-- game
++ game
 	+ layout
 	+ auto layout calculation
 	+ better autoscaling for tiles
 	+ ram interactivity
 	+ better color selection dialog
 	+ better tiles colors for different palettes
-	- initial color selection (vs human)
+	+ initial color selection (vs human)
+	- rival mode (rename game modes)
 	- confirmation screen (vs human)
 	- endscreens
 	- preaty border
