@@ -157,6 +157,15 @@ parameter reg [10:0] powers_of_10 [0:3] = '{11'd1, 11'd10, 11'd100, 11'd1000};
 
 // PALETTES
 
+parameter reg [2:0] C_RED     = 3'b100;
+parameter reg [2:0] C_GREEN   = 3'b010;
+parameter reg [2:0] C_BLUE    = 3'b001;
+parameter reg [2:0] C_CYAN    = 3'b011;
+parameter reg [2:0] C_MAGENTA = 3'b101;
+parameter reg [2:0] C_YELLOW  = 3'b110;
+parameter reg [2:0] C_WHITE   = 3'b111;
+parameter reg [2:0] C_BLACK   = 3'b000;
+
 parameter reg [2:0] palettes_count = 3'd5;
 parameter st_GS_PALETTE palettes [0:4] = '{ 
 '{
@@ -184,12 +193,42 @@ parameter st_GS_PALETTE palettes [0:4] = '{
 	selected      : 3'b110,
 	selected_bg   : 3'b101
 },  '{
-	// Tellow BG
+	// Yellow BG
 	text          : 3'b000,
 	bg            : 3'b110,
 	selected      : 3'b100,
 	selected_bg   : 3'b111
 }};
+
+parameter reg [1:0][2:0] pin_colorset [0:max_pin_colors-1] = '{
+// Main 6
+	{C_RED,     C_RED},
+	{C_GREEN,   C_GREEN},
+	{C_BLUE,    C_BLUE},
+	{C_YELLOW,  C_YELLOW},
+	{C_MAGENTA, C_MAGENTA},
+	{C_CYAN,    C_CYAN},
+// Mixed Red 5 (=11)
+	{C_RED,     C_GREEN},
+	{C_RED,     C_BLUE},
+	{C_RED,     C_YELLOW},
+	{C_RED,     C_MAGENTA},
+	{C_RED,     C_CYAN},
+// Mixed Green 4 (=15)
+	{C_GREEN,   C_BLUE},
+	{C_GREEN,   C_YELLOW},
+	{C_GREEN,   C_MAGENTA},
+	{C_GREEN,   C_CYAN},
+// Mixed Blue 3 (=18)
+	{C_BLUE,    C_YELLOW},
+	{C_BLUE,    C_MAGENTA},
+	{C_BLUE,    C_CYAN},
+// Mixed Yellow 2 (=20)
+	{C_YELLOW,  C_MAGENTA},
+	{C_YELLOW,  C_CYAN},
+// Mixed Magenta 21 (=21)
+	{C_MAGENTA, C_CYAN}
+};
 
 
 // Constants

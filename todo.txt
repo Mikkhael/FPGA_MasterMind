@@ -15,8 +15,11 @@
 + buttons
 - game
 	+ layout
-	- auto layout calculation
+	+ auto layout calculation
+	- better autoscaling for tiles (modifiable font_width)
 	+ ram interactivity
+	- better color selection dialog
+	+ better tiles colors for different palettes
 	- initial color selection (vs human)
 	- confirmation screen (vs human)
 	- endscreens

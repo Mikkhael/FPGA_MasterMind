@@ -222,17 +222,18 @@ always @(posedge CLK_PLL) begin
 	
 	GS.options.debug = BTN_DEB_DEBUG;
 	
-	if(BTN_EDGE_DEBUG && !BTN_DEB_RIGHT) begin
-		GS.options.PIX_W += 1'd1;
-		GS.render.values_updated = 0;
-	end
-	if(BTN_EDGE_DEBUG && !BTN_DEB_LEFT) begin
-		GS.options.PIX_W -= 1'd1;
-		GS.render.values_updated = 0;
-	end
-	if(BTN_EDGE_DEBUG && !BTN_DEB_DOWN) begin
-		`inc_rolled(GS.options.palette_id, 1'd0, palettes_count-1'd1);
-		GS.render.values_updated = 0;
+	if(BTN_EDGE_DEBUG) begin
+		if(!BTN_DEB_DOWN) begin
+			// TODO debug board_tile_pix_width
+			GS.render.board_tile_pix_width += BTN_DEB_LEFT ? (BTN_DEB_RIGHT ? 1'd0 : 1'd1) : -1'd1;
+			
+		end else if(!BTN_DEB_UP) begin
+			GS.options.pins_count += BTN_DEB_LEFT ? (BTN_DEB_RIGHT ? 1'd0 : 1'd1) : -1'd1;
+			GS.render.values_updated = 0;
+		end else begin
+			GS.options.PIX_W += BTN_DEB_LEFT ? (BTN_DEB_RIGHT ? 1'd0 : 1'd1) : -1'd1;
+			GS.render.values_updated = 0;
+		end
 	end
 	
 	if(!GS.render.values_updated) begin
@@ -240,7 +241,7 @@ always @(posedge CLK_PLL) begin
 		GS.render.charlines = RES_V / (GS.options.PIX_H * (FONT_H+1'd1));
 		GS.render.charcols  = RES_H / (GS.options.PIX_W * (FONT_W+1'd1));
 		
-		GS.render.pixels_H = RES_H / GS.options.PIX_W;
+		GS.render.pixels_H = GS.render.charcols * GS.options.PIX_W;
 		
 		// Title Menu
 		
@@ -288,8 +289,8 @@ always @(posedge CLK_PLL) begin
 		GS.render.board_border2_subcols_offset = GS.render.board_hints_subcols_offset - GS.render.board_border_subcols_width - GS.options.PIX_W;
 		
 			// Tiles
-		GS.render.board_tiles_pixels_available = GS.render.pixels_H - (FONT_W * 3'd6 + 5'd16);
-		GS.render.board_tile_pix_width = GS.render.board_tiles_pixels_available / GS.options.pins_count;
+		GS.render.board_tiles_pixels_available = GS.render.pixels_H - ((FONT_W+1'd1) * 3'd5 + 3'd6);
+		GS.render.board_tile_pix_width = GS.render.board_tiles_pixels_available / (GS.options.pins_count * (FONT_W + 10'd1));
 		if(GS.render.board_tile_pix_width > GS.options.PIX_W*3'd4) GS.render.board_tile_pix_width = GS.options.PIX_W*3'd4;
 		if(GS.render.board_tile_pix_width == 0) GS.render.board_tile_pix_width = 1;
 		GS.render.board_tiles_subcols_offset = GS.render.board_border2_subcols_offset - (GS.render.board_tile_pix_width * (FONT_W + 1'd1) * GS.options.pins_count);

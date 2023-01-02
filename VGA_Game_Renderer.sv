@@ -147,7 +147,17 @@ endtask
 	`display_string_character(name, index, fontline) \
 	cnth_fetch.skip_spacing_once = (index < STR_``name``_LEN) && (STR_MASK_``name``[index]); \
 	end
+	
+function [2:0] get_visible_color(input [2:0] color);
+	get_visible_color = color;
+	get_visible_color = (get_visible_color == GS.render.palette.bg) 			 ? C_BLACK : get_visible_color;
+	get_visible_color = (get_visible_color == GS.render.palette.selected_bg) ? (GS.render.palette.bg == C_BLACK ? C_WHITE : C_BLACK) : get_visible_color;
+endfunction
 
+function [2:0] get_pin_color(input [PIN_COLOR_W-1:0] index);
+	get_pin_color = get_visible_color(pin_colorset[index][cntv.fontline[0]]);
+endfunction
+	
 //reg [10:0] off_fetch_char = 0;
 reg [10:0] off_charline  = 0;
 reg [10:0] start_subcols = 0;
@@ -403,9 +413,9 @@ always @(posedge clk) begin
 						board_current_line_index <= GS.board.guessed_count &&
 						cnth.charcol < GS.options.pins_count) begin
 							if(cntv.charline + 1'd1 == GS.render.charlines) begin
-								color = (is_selected && blink) ? GS.render.palette.selected_bg : GS.board.current_guess[cnth.charcol][2:0];
+								color = (is_selected && blink) ? GS.render.palette.selected_bg : get_pin_color(GS.board.current_guess[cnth.charcol]);
 							end else begin
-								color = board_ram_q[2:0];
+								color = get_pin_color(board_ram_q[PIN_COLOR_W-1:0]);
 							end
 					end
 					if(cnth.fontcol != FONT_W && 
@@ -413,7 +423,7 @@ always @(posedge clk) begin
 						cntv.charline == 0 && 
 						GS.options.debug &&
 						cnth.charcol < GS.options.pins_count) begin
-							color = GS.board.secret[cnth.charcol][2:0];
+							color = get_pin_color(GS.board.secret[cnth.charcol]);
 					end
 				end
 			endcase
