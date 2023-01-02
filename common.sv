@@ -99,7 +99,7 @@ typedef struct {
 	reg [10:0] options_values_subcols_offset;
 	// Board
 	reg [5:0]  board_tile_pix_width;
-	reg [10:0] board_tiles_pixels_available;
+	reg [10:0] board_tiles_subcols_available;
 	reg [10:0] board_index_subcols_offset;
 	reg [10:0] board_border1_subcols_offset;
 	reg [10:0] board_border1_subcols_end;

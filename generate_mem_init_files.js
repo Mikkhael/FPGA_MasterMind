@@ -341,8 +341,8 @@ const STRINGS = [
     ['OPTIONS'],
     ['HIGHSCORES'],
 
-    ['GUESS', ['Enter', ...S('GUESS')]],
-    ['EXIT',  ['X', 'exit']],
+    ['GUESS', ['Enter']],
+    ['EXIT',  ['X']],
 
     ['BACK', ['ArrowL', 'ArrowL', ...S(' BACK '), 'ArrowL', 'ArrowL']],
 

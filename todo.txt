@@ -16,7 +16,7 @@
 - game
 	+ layout
 	+ auto layout calculation
-	- better autoscaling for tiles (modifiable font_width)
+	+ better autoscaling for tiles
 	+ ram interactivity
 	- better color selection dialog
 	+ better tiles colors for different palettes

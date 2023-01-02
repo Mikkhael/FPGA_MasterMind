@@ -214,7 +214,9 @@ reg [(PIN_POS_W*2):0] ram_loader_step = 0;
 wire [PIN_POS_W-1:0] ram_loader_step_low    = ram_loader_step[PIN_POS_W-1:0];
 wire [PIN_POS_W-1:0] ram_loader_step_high   = ram_loader_step[(2*PIN_POS_W)-1:PIN_POS_W];
 wire ram_loader_step_differnt_hints_section = ram_loader_step[2*PIN_POS_W];
-	
+
+reg signed [6:0] tile_pix_width_add = 0;
+
 always @(posedge CLK_PLL) begin
 	
 	board_ram_wen = 0;
@@ -225,7 +227,9 @@ always @(posedge CLK_PLL) begin
 	if(BTN_EDGE_DEBUG) begin
 		if(!BTN_DEB_DOWN) begin
 			// TODO debug board_tile_pix_width
-			GS.render.board_tile_pix_width += BTN_DEB_LEFT ? (BTN_DEB_RIGHT ? 1'd0 : 1'd1) : -1'd1;
+			
+			tile_pix_width_add += BTN_DEB_LEFT ? (BTN_DEB_RIGHT ? 1'd0 : 1'd1) : -1'd1;
+			//GS.render.values_updated = 0;
 			
 		end else if(!BTN_DEB_UP) begin
 			GS.options.pins_count += BTN_DEB_LEFT ? (BTN_DEB_RIGHT ? 1'd0 : 1'd1) : -1'd1;
@@ -235,6 +239,8 @@ always @(posedge CLK_PLL) begin
 			GS.render.values_updated = 0;
 		end
 	end
+	
+	LEDS[3] = GS.render.values_updated;
 	
 	if(!GS.render.values_updated) begin
 		
@@ -289,8 +295,8 @@ always @(posedge CLK_PLL) begin
 		GS.render.board_border2_subcols_offset = GS.render.board_hints_subcols_offset - GS.render.board_border_subcols_width - GS.options.PIX_W;
 		
 			// Tiles
-		GS.render.board_tiles_pixels_available = GS.render.pixels_H - ((FONT_W+1'd1) * 3'd5 + 3'd6);
-		GS.render.board_tile_pix_width = GS.render.board_tiles_pixels_available / (GS.options.pins_count * (FONT_W + 10'd1));
+		GS.render.board_tiles_subcols_available = RES_H - (((FONT_W+1'd1) * 11'd7 + 11'd6) * GS.options.PIX_W);
+		GS.render.board_tile_pix_width = GS.render.board_tiles_subcols_available / (GS.options.pins_count * (FONT_W + 10'd1)) + tile_pix_width_add;
 		if(GS.render.board_tile_pix_width > GS.options.PIX_W*3'd4) GS.render.board_tile_pix_width = GS.options.PIX_W*3'd4;
 		if(GS.render.board_tile_pix_width == 0) GS.render.board_tile_pix_width = 1;
 		GS.render.board_tiles_subcols_offset = GS.render.board_border2_subcols_offset - (GS.render.board_tile_pix_width * (FONT_W + 1'd1) * GS.options.pins_count);
@@ -303,8 +309,7 @@ always @(posedge CLK_PLL) begin
 		GS.render.board_guess_subcols_offset = GS.render.board_border1_subcols_offset / 2'd2;
 
 
-
-				
+		GS.render.values_updated = 1'd1;
 	end
 	
 //	GS.board.secret[0] = 1;
@@ -456,10 +461,10 @@ always @(posedge CLK_PLL) begin
 	LEDS[0] = GS.board.is_guess_entered;
 	LEDS[1] = GS.board.is_guess_uploading;
 	LEDS[2] = GS.board.is_guess_uploaded;
-	LEDS[3] = time_counter[19];
+	//LEDS[3] = time_counter[19];
 	
 	//LEDS[2:0] = ram_loader_step[2:0];
-	LEDS[3]   = ram_loader_step < GS.options.pins_count;
+	//LEDS[3]   = ram_loader_step < GS.options.pins_count;
 	
 	if(VGA_VSYNC && GS.state_name != GS_GENERATE_PINS) begin
 		GS_vga = GS;
