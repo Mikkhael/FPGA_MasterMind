@@ -155,10 +155,10 @@ VGA_Game_Renderer vga(CLK_VGA, font_rom_clk, font_rom_addr, font_rom_q, board_ra
 		if(GS.navigation.is_selected_sub) begin \
 			`dec_or_inc_rolled(GS.navigation.selected_sub_element, 1'd0, GS_DECIM_options_``name``_LEN-1'd1, BTN_EDGE_RIGHT, BTN_EDGE_LEFT) \
 			`sub_or_add_clumped(GS.options.``name``, powers_of_10[GS_DECIM_options_``name``_LEN-1'd1-GS.navigation.selected_sub_element][width-1:0], min, max, BTN_EDGE_UP, BTN_EDGE_DOWN) \
-			GS.render.values_updated = ~(BTN_EDGE_UP | BTN_EDGE_DOWN); \
+			GS.render.values_updated = !(BTN_EDGE_UP || BTN_EDGE_DOWN); \
 		end else begin \
 			`dec_or_inc_clumped(GS.options.``name``, min, max, BTN_EDGE_RIGHT, BTN_EDGE_LEFT) \
-			GS.render.values_updated = ~(BTN_EDGE_LEFT | BTN_EDGE_RIGHT); \
+			GS.render.values_updated = !(BTN_EDGE_LEFT || BTN_EDGE_RIGHT); \
 		end \
 	end
 
@@ -205,6 +205,10 @@ task analyze_pin_pair_different(input [PIN_POS_W-1:0] g, input [PIN_POS_W-1:0] s
 	end
 endtask
 
+function [PIX_VALUE_W-1:0] truncate_11_to_PIXEL_W(input [10:0] value);
+	truncate_11_to_PIXEL_W = value[PIX_VALUE_W-1:0];
+endfunction
+
 // PIN_POS_W = 5
 // [(PIN_POS_W*2):0] = 11
 // CLK_T = 1/500000 s
@@ -225,22 +229,31 @@ always @(posedge CLK_PLL) begin
 	GS.options.debug = BTN_DEB_DEBUG;
 	
 	if(BTN_EDGE_DEBUG) begin
-		if(!BTN_DEB_DOWN) begin
-			// TODO debug board_tile_pix_width
+		if(!BTN_DEB_DOWN && BTN_DEB_UP) begin
 			
 			tile_pix_width_add += BTN_DEB_LEFT ? (BTN_DEB_RIGHT ? 1'd0 : 1'd1) : -1'd1;
-			//GS.render.values_updated = 0;
 			
-		end else if(!BTN_DEB_UP) begin
+			if(BTN_DEB_LEFT && BTN_DEB_RIGHT) begin
+				GS.options.palette_id += 1'd1;
+				if(GS.options.palette_id >= palettes_count) begin
+					GS.options.palette_id = 1'd0;
+				end
+			end
+			GS.render.values_updated = 0;
+			
+		end else if(BTN_DEB_DOWN && !BTN_DEB_UP) begin
 			GS.options.pins_count += BTN_DEB_LEFT ? (BTN_DEB_RIGHT ? 1'd0 : 1'd1) : -1'd1;
 			GS.render.values_updated = 0;
-		end else begin
+		end else if(!BTN_DEB_DOWN && !BTN_DEB_UP) begin
+			GS.options.pin_colors += BTN_DEB_LEFT ? (BTN_DEB_RIGHT ? 1'd0 : 1'd1) : -1'd1;
+			GS.render.values_updated = 0;
+		end else if(BTN_DEB_DOWN && BTN_DEB_UP) begin
 			GS.options.PIX_W += BTN_DEB_LEFT ? (BTN_DEB_RIGHT ? 1'd0 : 1'd1) : -1'd1;
 			GS.render.values_updated = 0;
 		end
 	end
 	
-	LEDS[3] = GS.render.values_updated;
+	LEDS[3] = !GS.render.values_updated;
 	
 	if(!GS.render.values_updated) begin
 		
@@ -296,7 +309,7 @@ always @(posedge CLK_PLL) begin
 		
 			// Tiles
 		GS.render.board_tiles_subcols_available = RES_H - (((FONT_W+1'd1) * 11'd7 + 11'd6) * GS.options.PIX_W);
-		GS.render.board_tile_pix_width = GS.render.board_tiles_subcols_available / (GS.options.pins_count * (FONT_W + 10'd1)) + tile_pix_width_add;
+		GS.render.board_tile_pix_width = truncate_11_to_PIXEL_W(GS.render.board_tiles_subcols_available / (GS.options.pins_count * (FONT_W + 10'd1)) + tile_pix_width_add);
 		if(GS.render.board_tile_pix_width > GS.options.PIX_W*3'd4) GS.render.board_tile_pix_width = GS.options.PIX_W*3'd4;
 		if(GS.render.board_tile_pix_width == 0) GS.render.board_tile_pix_width = 1;
 		GS.render.board_tiles_subcols_offset = GS.render.board_border2_subcols_offset - (GS.render.board_tile_pix_width * (FONT_W + 1'd1) * GS.options.pins_count);
@@ -308,7 +321,12 @@ always @(posedge CLK_PLL) begin
 		GS.render.board_exit_subcols_offset = 0;
 		GS.render.board_guess_subcols_offset = GS.render.board_border1_subcols_offset / 2'd2;
 
-
+			// Tiles Dialog
+		GS.render.board_tiles_dialog_charlines_offset = 2;
+		GS.render.board_tiles_dialog_width  = (GS.options.pin_colors < 10 ? 3'd3 : (GS.options.pin_colors < 17 ? 3'd4 : 3'd5));
+		GS.render.board_tiles_dialog_height = (GS.options.pin_colors - 1'd1) / GS.render.board_tiles_dialog_width + 1'd1;
+		GS.render.board_tiles_dialog_subcols_end = GS.render.board_tiles_dialog_width * (FONT_W + 1'd1) * GS.options.PIX_W;
+		
 		GS.render.values_updated = 1'd1;
 	end
 	
@@ -373,35 +391,45 @@ always @(posedge CLK_PLL) begin
 			endcase
 		end
 		GS_GAME: begin
-			`dec_or_inc_clumped(GS.navigation.selected_element, 0, 1'd1 + GS.options.pins_count, BTN_EDGE_RIGHT, BTN_EDGE_LEFT)
-			`dec_or_inc_clumped(GS.board.scroll_offset, 0, GS.board.guessed_count == 0 ? 0 : GS.board.guessed_count-1'd1, BTN_EDGE_UP, BTN_EDGE_DOWN)
+			if(GS.navigation.is_selected_sub) begin
+				`dec_or_inc_clumped(GS.navigation.selected_sub_element, 												  1'd0, GS.options.pin_colors - 1'd1, BTN_EDGE_RIGHT, BTN_EDGE_LEFT)
+				`sub_or_add_clumped(GS.navigation.selected_sub_element, GS.render.board_tiles_dialog_width, 1'd0, GS.options.pin_colors - 1'd1, BTN_EDGE_DOWN,  BTN_EDGE_UP)
+				GS.board.current_guess[GS.navigation.selected_element - 2'd2] = GS.navigation.selected_sub_element[PIN_COLOR_W-1:0];
+				if(BTN_EDGE_ENTER) begin
+					GS.navigation.is_selected_sub = 0;
+					GS.board.is_guess_entered = 1;
+					GS.board.is_guess_uploaded = 0;
+					reset_analysis();
+				end
+			end else begin
+				`dec_or_inc_clumped(GS.navigation.selected_element, 0, 1'd1 + GS.options.pins_count, BTN_EDGE_RIGHT, BTN_EDGE_LEFT)
+				`dec_or_inc_clumped(GS.board.scroll_offset, 0, GS.board.guessed_count == 0 ? 0 : GS.board.guessed_count-1'd1, BTN_EDGE_UP, BTN_EDGE_DOWN)
 			
-			if(BTN_EDGE_ENTER) begin
-				case(GS.navigation.selected_element)
-					0: begin // EXIT
-						GS.state_name = GS_MAIN_MENU;
-						GS.navigation.selected_element = GS.board.is_vs_human;
-					end
-					1: begin // GUESS
-						if(GS.board.is_guess_uploaded) begin
-							`inc_clumped(GS.board.guessed_count, GS.options.guesses)
-							GS.board.is_guess_entered = 1;
-							GS.board.is_guess_uploaded = 0;
-							reset_analysis();
-							if(GS.board.guessed_count >= GS.board.scroll_offset + GS.render.charlines) begin
-								GS.board.scroll_offset = GS.board.guessed_count - GS.render.charlines + 1'd1;
+				if(BTN_EDGE_ENTER) begin
+					case(GS.navigation.selected_element)
+						0: begin // EXIT
+							GS.state_name = GS_MAIN_MENU;
+							GS.navigation.selected_element = GS.board.is_vs_human;
+						end
+						1: begin // GUESS
+							if(GS.board.is_guess_uploaded) begin
+								`inc_clumped(GS.board.guessed_count, GS.options.guesses)
+								GS.board.is_guess_entered = 1;
+								GS.board.is_guess_uploaded = 0;
+								reset_analysis();
+								if(GS.board.guessed_count >= GS.board.scroll_offset + GS.render.charlines) begin
+									GS.board.scroll_offset = GS.board.guessed_count - GS.render.charlines[7:0] + 1'd1;
+								end
 							end
 						end
-					end
-					default: begin // TILES
-						if(GS.board.is_guess_uploaded) begin
-							`inc_rolled(GS.board.current_guess[GS.navigation.selected_element - 2'd2], 1'd0, GS.options.pin_colors - 1'd1)
-							GS.board.is_guess_entered = 1;
-							GS.board.is_guess_uploaded = 0;
-							reset_analysis();
+						default: begin // TILES
+							if(GS.board.is_guess_uploaded) begin
+								GS.navigation.is_selected_sub = 1;
+								GS.navigation.selected_sub_element = GS.board.current_guess[GS.navigation.selected_element - 2'd2];
+							end
 						end
-					end
-				endcase
+					endcase
+				end
 			end
 			
 			ram_loader_step = time_counter[(PIN_POS_W*2):0];

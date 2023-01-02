@@ -110,6 +110,11 @@ typedef struct {
 	reg [10:0] board_border_seperator_length;
 	reg [10:0] board_exit_subcols_offset;
 	reg [10:0] board_guess_subcols_offset;
+	
+	reg [PIN_COLOR_W-1:0] board_tiles_dialog_width;
+	reg [PIN_COLOR_W-1:0] board_tiles_dialog_height;
+	reg [10:0] board_tiles_dialog_charlines_offset;
+	reg [10:0] board_tiles_dialog_subcols_end;
 	// Palette
 	st_GS_PALETTE palette;
 } st_GS_RENDER;
