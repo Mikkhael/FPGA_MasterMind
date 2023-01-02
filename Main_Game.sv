@@ -222,10 +222,25 @@ always @(posedge CLK_PLL) begin
 	
 	GS.options.debug = BTN_DEB_DEBUG;
 	
+	if(BTN_EDGE_DEBUG && !BTN_DEB_RIGHT) begin
+		GS.options.PIX_W += 1'd1;
+		GS.render.values_updated = 0;
+	end
+	if(BTN_EDGE_DEBUG && !BTN_DEB_LEFT) begin
+		GS.options.PIX_W -= 1'd1;
+		GS.render.values_updated = 0;
+	end
+	if(BTN_EDGE_DEBUG && !BTN_DEB_DOWN) begin
+		`inc_rolled(GS.options.palette_id, 1'd0, palettes_count-1'd1);
+		GS.render.values_updated = 0;
+	end
+	
 	if(!GS.render.values_updated) begin
 		
 		GS.render.charlines = RES_V / (GS.options.PIX_H * (FONT_H+1'd1));
 		GS.render.charcols  = RES_H / (GS.options.PIX_W * (FONT_W+1'd1));
+		
+		GS.render.pixels_H = RES_H / GS.options.PIX_W;
 		
 		// Title Menu
 		
@@ -253,19 +268,41 @@ always @(posedge CLK_PLL) begin
 		
 		GS.render.palette = palettes[GS.options.palette_id];
 		
-		// Boar
+		// Board
 		
-		GS.render.board_border_subcols_width = 5;
+//		GS.render.board_index_subcols_offset = 100;
+//		GS.render.board_border1_subcols_offset = 300;
+//		GS.render.board_border1_subcols_end = 305;
+//		GS.render.board_tiles_subcols_offset = 310;
+//		GS.render.board_border2_subcols_offset = 500;
+//		GS.render.board_hints_subcols_offset = 510;
+//		GS.render.board_border_seperator_length = 5;
+//		GS.render.board_exit_subcols_offset = 50;
+//		GS.render.board_guess_subcols_offset = 150;
 		
-		GS.render.board_index_subcols_offset = 100;
-		GS.render.board_border1_subcols_offset = 300;
-		GS.render.board_border1_subcols_end = 305;
-		GS.render.board_tiles_subcols_offset = 310;
-		GS.render.board_border2_subcols_offset = 500;
-		GS.render.board_hints_subcols_offset = 510;
+			// Right border and hints
 		GS.render.board_border_seperator_length = 5;
-		GS.render.board_exit_subcols_offset = 50;
-		GS.render.board_guess_subcols_offset = 150;
+		GS.render.board_border_subcols_width = GS.options.PIX_W * 2'd2;
+		
+		GS.render.board_hints_subcols_offset = RES_H - ((FONT_W+1'd1) * 3'd4 * GS.options.PIX_W);
+		GS.render.board_border2_subcols_offset = GS.render.board_hints_subcols_offset - GS.render.board_border_subcols_width - GS.options.PIX_W;
+		
+			// Tiles
+		GS.render.board_tiles_pixels_available = GS.render.pixels_H - (FONT_W * 3'd6 + 5'd16);
+		GS.render.board_tile_pix_width = GS.render.board_tiles_pixels_available / GS.options.pins_count;
+		if(GS.render.board_tile_pix_width > GS.options.PIX_W*3'd4) GS.render.board_tile_pix_width = GS.options.PIX_W*3'd4;
+		if(GS.render.board_tile_pix_width == 0) GS.render.board_tile_pix_width = 1;
+		GS.render.board_tiles_subcols_offset = GS.render.board_border2_subcols_offset - (GS.render.board_tile_pix_width * (FONT_W + 1'd1) * GS.options.pins_count);
+		
+			// Left of Tiles
+		GS.render.board_border1_subcols_end = GS.render.board_tiles_subcols_offset - GS.options.PIX_W;
+		GS.render.board_border1_subcols_offset = GS.render.board_border1_subcols_end - GS.render.board_border_subcols_width;
+		GS.render.board_index_subcols_offset = GS.render.board_border1_subcols_offset - ((FONT_W+1'd1) * 2'd3 * GS.options.PIX_W);
+		GS.render.board_exit_subcols_offset = 0;
+		GS.render.board_guess_subcols_offset = GS.render.board_border1_subcols_offset / 2'd2;
+
+
+
 				
 	end
 	
@@ -331,7 +368,7 @@ always @(posedge CLK_PLL) begin
 		end
 		GS_GAME: begin
 			`dec_or_inc_clumped(GS.navigation.selected_element, 0, 1'd1 + GS.options.pins_count, BTN_EDGE_RIGHT, BTN_EDGE_LEFT)
-			`dec_or_inc_clumped(GS.board.scroll_offset, 0, GS.board.guessed_count, BTN_EDGE_UP, BTN_EDGE_DOWN)
+			`dec_or_inc_clumped(GS.board.scroll_offset, 0, GS.board.guessed_count == 0 ? 0 : GS.board.guessed_count-1'd1, BTN_EDGE_UP, BTN_EDGE_DOWN)
 			
 			if(BTN_EDGE_ENTER) begin
 				case(GS.navigation.selected_element)
@@ -345,6 +382,9 @@ always @(posedge CLK_PLL) begin
 							GS.board.is_guess_entered = 1;
 							GS.board.is_guess_uploaded = 0;
 							reset_analysis();
+							if(GS.board.guessed_count >= GS.board.scroll_offset + GS.render.charlines) begin
+								GS.board.scroll_offset = GS.board.guessed_count - GS.render.charlines + 1'd1;
+							end
 						end
 					end
 					default: begin // TILES

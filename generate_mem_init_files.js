@@ -317,6 +317,20 @@ const LONG_SPRITES_DATA = [
         `1...1.1.1..1.1.1`,
         `1...1.1.1..1.111`,
     ]],
+    ['exit', [
+        `..........1...1.`,
+        `.............111`,
+        `.11..1.1..1...1.`,
+        `1111..1...1...1.`,
+        `.111.1.1..1...11`,
+    ]],
+    ['Enter', [
+        `..11.111`,
+        `.11....1`,
+        `11111111`,
+        `.11.....`,
+        `..11....`,
+    ]],
 ];
 
 const S = str => str.split('');
@@ -327,8 +341,8 @@ const STRINGS = [
     ['OPTIONS'],
     ['HIGHSCORES'],
 
-    ['GUESS'],
-    ['EXIT'],
+    ['GUESS', ['Enter', ...S('GUESS')]],
+    ['EXIT',  ['X', 'exit']],
 
     ['BACK', ['ArrowL', 'ArrowL', ...S(' BACK '), 'ArrowL', 'ArrowL']],
 
@@ -462,6 +476,7 @@ DATA_RADIX = BIN;
 
 CONTENT BEGIN
 ${mem_file_content.toUpperCase()}
+\t[${memory_words_count_used.toString(16).toUpperCase()}..${(memory_words_count-1).toString(16).toUpperCase()}] : 0;
 END;
 
 `;

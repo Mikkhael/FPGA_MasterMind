@@ -87,6 +87,7 @@ typedef struct {
 	reg values_updated;
 	reg [10:0] charlines;
 	reg [10:0] charcols;
+	reg [10:0] pixels_H;
 	// Main Menu
 	reg [10:0] title_subcols_offset;
 	reg [10:0] title_charlines_offset;
@@ -97,6 +98,8 @@ typedef struct {
 	reg [10:0] options_subcols_offset;
 	reg [10:0] options_values_subcols_offset;
 	// Board
+	reg [5:0]  board_tile_pix_width;
+	reg [10:0] board_tiles_pixels_available;
 	reg [10:0] board_index_subcols_offset;
 	reg [10:0] board_border1_subcols_offset;
 	reg [10:0] board_border1_subcols_end;
@@ -155,30 +158,36 @@ parameter reg [10:0] powers_of_10 [0:3] = '{11'd1, 11'd10, 11'd100, 11'd1000};
 // PALETTES
 
 parameter reg [2:0] palettes_count = 3'd5;
-parameter st_GS_PALETTE palettes [0:4] = '{ '{
-	text          : 3'b111,
+parameter st_GS_PALETTE palettes [0:4] = '{ 
+'{
+	// BLack & White with Blue Selection
+	text          : 3'b111, 
 	bg            : 3'b000,
 	selected      : 3'b100,
 	selected_bg   : 3'b001
 }, '{
-	text          : 3'b111,
+	// BLack & White with Red Selection
+	text          : 3'b111, 
 	bg            : 3'b000,
-	selected      : 3'b000,
+	selected      : 3'b010,
 	selected_bg   : 3'b100
 }, '{
-	text          : 3'b100,
-	bg            : 3'b000,
-	selected      : 3'b111,
-	selected_bg   : 3'b000
+   // White & Black with Red Selection
+	text          : 3'b000,
+	bg            : 3'b111,
+	selected      : 3'b001,
+	selected_bg   : 3'b100
 }, '{
-	text          : 3'b111,
-	bg            : 3'b000,
-	selected      : 3'b100,
-	selected_bg   : 3'b000
-},  '{
+	// Cyan BG
 	text          : 3'b010,
-	bg            : 3'b001,
-	selected      : 3'b011,
+	bg            : 3'b011,
+	selected      : 3'b110,
+	selected_bg   : 3'b101
+},  '{
+	// Tellow BG
+	text          : 3'b000,
+	bg            : 3'b110,
+	selected      : 3'b100,
 	selected_bg   : 3'b111
 }};
 

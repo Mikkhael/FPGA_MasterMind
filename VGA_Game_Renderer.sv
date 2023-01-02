@@ -3,7 +3,7 @@ module VGA_Game_Renderer(
 	
 	output wire 		rom_clk, 
 	output reg  [(ADDR_W-1):0]	rom_addr = 0, 
-	input  wire	[(FONT_W-1):0]     rom_q,
+	input  wire	[(FONT_W-1):0] rom_q,
 	
 	output wire board_ram_rclk,
 	output reg [11:0] board_ram_raddr = 0,
@@ -30,7 +30,7 @@ typedef struct{
 	reg [10:0] charcol;
 	
 	reg skip_spacing_once;
-	reg [4:0] pix_add;
+	reg [5:0] pix_size;
 	
 	reg [10:0] start_subcols;
 	reg [3:0] board_drawing_stage;
@@ -47,7 +47,7 @@ typedef struct{
 	reg [10:0] charline;
 	
 	reg skip_spacing_once;
-	reg [4:0] pix_add;
+	reg [5:0] pix_size;
 } st_counters_v;
 
 st_counters_h cnth       = '{default: 0, val: (H_TIME_TOTAL - 4), blanking: 1};
@@ -80,7 +80,7 @@ task automatic advance_counters_h(ref st_GAME_STATE GS, ref st_counters_h cnth);
 		
 	end else if(~cnth.blanking) begin // Czy jesteśmy w sekcji kolorowego obrazu
 		// Increment
-		if(++cnth.subcol == GS.options.PIX_W + cnth.pix_add) begin
+		if(++cnth.subcol == cnth.pix_size) begin
 			cnth.subcol = 0;
 			++cnth.col;
 			// Advance displayed font pixel
@@ -113,7 +113,7 @@ task automatic advance_counters_v(ref st_GAME_STATE GS, ref st_counters_v cntv);
 		
 	end else if(~cntv.blanking) begin // Czy jesteśmy w sekcji kolorowego obrazu
 		// Increment
-		if(++cntv.subline == GS.options.PIX_H + cntv.pix_add) begin
+		if(++cntv.subline == cntv.pix_size) begin
 			cntv.subline = 0;
 			++cntv.line;
 			// Advance displayed font pixel
@@ -202,15 +202,15 @@ always @(posedge clk) begin
 				end
 				if(cntv.charline == GS.render.title_charlines_offset) begin
 					// Title
-					cntv.pix_add       = title_pixel_size_add;
-					cnth_fetch.pix_add = title_pixel_size_add;
+					cntv.pix_size       = GS.options.PIX_H + title_pixel_size_add;
+					cnth_fetch.pix_size = GS.options.PIX_W + title_pixel_size_add;
 					if(cnth_fetch.fontcol == 0 && cnth_fetch.subcol == 0) begin
 						`display_string_character_with_mask(TITLE, cnth_fetch.charcol, cntv.fontline)
 					end
 				end else begin
 					// Menu Entries
-					cntv.pix_add       = 0;
-					cnth_fetch.pix_add = 0;
+					cntv.pix_size       = GS.options.PIX_H;
+					cnth_fetch.pix_size = GS.options.PIX_W;
 					if(cnth_fetch.fontcol == 0 && cnth_fetch.subcol == 0) begin
 						off_charline = cntv.charline - GS.render.title_menu_charlines_offset;
 						case(off_charline)
@@ -231,12 +231,12 @@ always @(posedge clk) begin
 					// Add margin
 					start_subcols += options_is_values ? 1'd0 : GS.render.options_add_subcols_offset_selected;
 					// Increase size
-					cnth_fetch.pix_add = options_is_values ? 1'd0 : 1'd1;
-					cntv.pix_add = 1'd1;
+					cnth_fetch.pix_size = GS.options.PIX_W + (options_is_values ? 1'd0 : 1'd1);
+					cntv.pix_size       = GS.options.PIX_H + 1'd1;
 				end else begin
 					// Revert increased size
-					cnth_fetch.pix_add = 0;
-					cntv.pix_add = 0;
+					cnth_fetch.pix_size = GS.options.PIX_W;
+					cntv.pix_size       = GS.options.PIX_H;
 				end
 				if(cnth_fetch.val >= start_subcols) begin
 					if(cnth_fetch.val == start_subcols) begin
@@ -297,6 +297,7 @@ always @(posedge clk) begin
 					cnth_fetch.fontcol = 0;
 					cnth_fetch.charcol = 0;
 				end
+				cnth_fetch.pix_size = GS.options.PIX_W;
 				case(cnth_fetch.board_drawing_stage)
 					0: begin // Hints
 						if(cnth_fetch.charcol < 2) begin
@@ -306,6 +307,7 @@ always @(posedge clk) begin
 						end
 					end
 					2: begin // Tiles
+						cnth_fetch.pix_size = GS.render.board_tile_pix_width;
 						board_ram_raddr = (board_current_line_index - 1'd1) * max_pins_count + cnth_fetch.charcol;
 						rom_addr = CHAR_;
 					end
@@ -417,7 +419,7 @@ always @(posedge clk) begin
 			endcase
 			
 			if(cntv.fontline == FONT_H) begin // Row Seperators
-				if((cntv.charline >= GS.render.charlines - 2'd2 && (cnth.board_drawing_stage == 2'd1 || cnth.board_drawing_stage == 2'd2)) ||
+				if(( (cntv.charline >= GS.render.charlines - 2'd2) && (cnth.board_drawing_stage == 2'd3 || cnth.board_drawing_stage == 2'd2) ) ||
 				   cnth.val - GS.render.board_border1_subcols_end    <= GS.render.board_border_seperator_length ||
 					GS.render.board_border2_subcols_offset - cnth.val <= GS.render.board_border_seperator_length)
 				color = GS.render.palette.text;
