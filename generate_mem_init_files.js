@@ -359,6 +359,7 @@ const STRINGS = [
     ['TITLE', ['MM', ...S('ASTER'), 'Mind'], true],
     ['PLAY VS COMPUTER'],
     ['PLAY VS HUMAN'],
+    ['PLAY VS RIVAL', [...S('PLAY VS HUMAN'), 'Colon', ...S(' RIVAL MODE')]],
     ['OPTIONS'],
     ['HIGHSCORES'],
 

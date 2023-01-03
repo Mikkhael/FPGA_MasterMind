@@ -60,8 +60,10 @@ typedef enum logic [3:0] {
 	DIAL_NONE, DIAL_YOUWIN, DIAL_YOULOSE, DIAL_ENTERSECRET, 
 	DIAL_HINTSGREEN, DIAL_HINTSYELLOW, DIAL_GUESSER, DIAL_SETTER} DIAL_STATE;
 
+typedef enum logic [1:0] {GAMEMODE_RANDOM = 2'd0, GAMEMODE_CUSTOM = 2'd1, GAMEMODE_RIVAL = 2'd2} ENUM_GAME_MODE;
+	
 typedef struct {
-	reg is_vs_human;
+	ENUM_GAME_MODE gamemode;
 	reg [7:0] guessed_count;
 	reg [7:0] scroll_offset;
 	reg [PIN_COLOR_W-1:0] current_guess [0:max_pins_count-1];
@@ -74,6 +76,9 @@ typedef struct {
 	
 	reg [PIN_POS_W-1:0] calculated_green;
 	reg [PIN_POS_W-1:0] calculated_yellow;
+	
+	reg [PIN_POS_W-1:0] proposed_green;
+	reg [PIN_POS_W-1:0] proposed_yellow;
 	
 	reg [max_pins_count-1:0] analyzed_guess;
 	reg [max_pins_count-1:0] analyzed_secret;
@@ -116,11 +121,14 @@ typedef struct {
 	reg [10:0] board_exit_subcols_offset;
 	reg [10:0] board_guess_subcols_offset;
 	
+	
 	reg [PIN_COLOR_W-1:0] board_tiles_dialog_width;
 	reg [PIN_COLOR_W-1:0] board_tiles_dialog_height;
-	reg [10:0] board_tiles_dialog_charlines_offset;
+	reg [2:0] board_tiles_dialog_charlines_offset;
 	reg [10:0] board_tiles_dialog_subcols_end;
-	reg [10:0] board_text_dialog_charlines_offset;
+	reg [4:0] board_tiles_dialog_charlines_end;
+	reg [2:0] board_text_dialog_charlines_offset;
+	reg [10:0] board_text_dialog_input_charcols_offset;
 	// Palette
 	st_GS_PALETTE palette;
 } st_GS_RENDER;

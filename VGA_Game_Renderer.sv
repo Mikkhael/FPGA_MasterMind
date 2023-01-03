@@ -20,8 +20,15 @@ module VGA_Game_Renderer(
 );
 
 
-typedef enum logic [4:0] {
-	BOARD_NONE,
+typedef enum logic [5:0] {
+	DRAWING_STAGE_NONE,
+
+	MAIN_MENU_TITLE,
+	MAIN_MENU_OPTION,
+	
+	OPTIONS_NAMES,
+	OPTIONS_VALUES,
+
 	BOARD_INDEX, 
 	BOARD_BORDER_L, 
 	BOARD_BORDER_R,
@@ -31,7 +38,7 @@ typedef enum logic [4:0] {
 	BOARD_GUESS,
 	BOARD_TILE_DIALOG,
 	BOARD_TEXT_DIALOG
-} BOARD_DRAWING_STAGE;
+} DRAWING_STAGE;
 
 typedef struct{
 	reg blanking;
@@ -47,7 +54,8 @@ typedef struct{
 	reg [5:0] pix_size;
 	
 	reg [10:0] start_subcols;
-	BOARD_DRAWING_STAGE board_drawing_stage;
+	DRAWING_STAGE drawing_stage;
+	reg [10:0] dialog_input_charcol;
 } st_counters_h;
 
 typedef struct{
@@ -174,15 +182,22 @@ endfunction
 function [2:0] get_pin_color(input [PIN_COLOR_W-1:0] index);
 	get_pin_color = get_visible_color(pin_colorset[index][cntv.fontline[0]]);
 endfunction
+
+function [2:0] get_palette_color(input is_bg, input is_selected);
+	get_palette_color = is_bg ? 
+					(is_selected ? GS.render.palette.selected_bg : GS.render.palette.bg)  : 
+					(is_selected ? GS.render.palette.selected    : GS.render.palette.text);
+endfunction
 	
 //reg [10:0] off_fetch_char = 0;
 reg [10:0] off_charline  = 0;
-reg options_is_values = 0;
+reg is_selected_option_line = 0;
 reg is_selected = 0;
 reg is_bg = 0;
 reg blink = 0;
 
 reg [7:0] temp_color_index = 0;
+reg is_board_current_guess = 0;
 
 
 reg [10:0] board_current_line_index   = 0;
@@ -192,10 +207,14 @@ reg [7:0]  board_current_hints_yellow = 0;
 reg [1:0][3:0] board_current_line_index_decimized   = 0;
 reg [1:0][3:0] board_current_hints_green_decimized  = 0;
 reg [1:0][3:0] board_current_hints_yellow_decimized = 0;
+reg [1:0][3:0] board_current_proposed_green_decimized  = 0;
+reg [1:0][3:0] board_current_proposed_yellow_decimized = 0;
 
-DIV_MOD #(.W_in(8), .W_div(4)) dm_index        (board_current_line_index,   board_current_line_index_decimized[0],   board_current_line_index_decimized[1]);
-DIV_MOD #(.W_in(8), .W_div(4)) dm_hints_green  (board_current_hints_green,  board_current_hints_green_decimized[0],  board_current_hints_green_decimized[1]);
-DIV_MOD #(.W_in(8), .W_div(4)) dm_hints_yellow (board_current_hints_yellow, board_current_hints_yellow_decimized[0], board_current_hints_yellow_decimized[1]);
+DIV_MOD #(.W_in(8), .W_div(4)) dm_index        (board_current_line_index,   board_current_line_index_decimized[0],      board_current_line_index_decimized[1]);
+DIV_MOD #(.W_in(8), .W_div(4)) dm_hints_green  (board_current_hints_green,  board_current_hints_green_decimized[0],     board_current_hints_green_decimized[1]);
+DIV_MOD #(.W_in(8), .W_div(4)) dm_hints_yellow (board_current_hints_yellow, board_current_hints_yellow_decimized[0],    board_current_hints_yellow_decimized[1]);
+DIV_MOD #(.W_in(8), .W_div(4)) dm_propo_green  (GS.board.proposed_green,    board_current_proposed_green_decimized[0],  board_current_proposed_green_decimized[1]);
+DIV_MOD #(.W_in(8), .W_div(4)) dm_propo_yellow (GS.board.proposed_yellow,   board_current_proposed_yellow_decimized[0], board_current_proposed_yellow_decimized[1]);
 
 
 always @(posedge clk) begin
@@ -214,59 +233,68 @@ always @(posedge clk) begin
 	
 	
 	//// FETCH ////
+	cnth_fetch.drawing_stage = DRAWING_STAGE_NONE;
 	if(GS.state_name == GS_GAME) begin
 		board_current_line_index = GS.render.charlines - 1'd1 - cntv.charline + GS.board.scroll_offset;
 	end
 	if(!cnth_fetch.blanking && !cntv.blanking) begin
 		case(GS.state_name)
 			GS_MAIN_MENU: begin
-				// Dont display anything until you reach correct offset, then reset counters to 0
-				if(cnth_fetch.val == GS.render.title_subcols_offset) begin
-					cnth_fetch.subcol  = 0;
-					cnth_fetch.col     = 0;
-					cnth_fetch.fontcol = 0;
-					cnth_fetch.charcol = 0;
-				end else if(cnth_fetch.val < GS.render.title_subcols_offset) begin
-					cnth_fetch.charcol = -11'd1;
-				end
-				if(cntv.charline == GS.render.title_charlines_offset) begin
-					// Title
-					cntv.pix_size       = GS.options.PIX_H + title_pixel_size_add;
-					cnth_fetch.pix_size = GS.options.PIX_W + title_pixel_size_add;
-					if(cnth_fetch.fontcol == 0 && cnth_fetch.subcol == 0) begin
-						`display_string_character_with_mask(TITLE, cnth_fetch.charcol, cntv.fontline)
+				rom_addr = CHAR_;
+				off_charline = cntv.charline - GS.render.title_menu_charlines_offset;
+				if(cnth_fetch.val >= GS.render.title_subcols_offset) begin
+					if(cnth_fetch.val == GS.render.title_subcols_offset) begin
+						cnth_fetch.subcol  = 0;
+						cnth_fetch.col     = 0;
+						cnth_fetch.fontcol = 0;
+						cnth_fetch.charcol = 0;
 					end
-				end else begin
-					// Menu Entries
-					cntv.pix_size       = GS.options.PIX_H;
-					cnth_fetch.pix_size = GS.options.PIX_W;
-					if(cnth_fetch.fontcol == 0 && cnth_fetch.subcol == 0) begin
-						off_charline = cntv.charline - GS.render.title_menu_charlines_offset;
+					if(cntv.charline == GS.render.title_charlines_offset) begin
+						// Title
+						cnth_fetch.drawing_stage = MAIN_MENU_TITLE;
+						cnth_fetch.pix_size 	    = GS.options.PIX_W + title_pixel_size_add;
+						cntv.pix_size       		 = GS.options.PIX_H + title_pixel_size_add;
+						`display_string_character_with_mask(TITLE, cnth_fetch.charcol, cntv.fontline)
+					end else begin
+						// Menu Entries
+						cnth_fetch.drawing_stage = MAIN_MENU_OPTION;
+						cntv.pix_size       = GS.options.PIX_H;
+						cnth_fetch.pix_size = GS.options.PIX_W;
 						case(off_charline)
 							0: `display_string_character(PLAYVSCOMPUTER, cnth_fetch.charcol, cntv.fontline)
 							1: `display_string_character(PLAYVSHUMAN,    cnth_fetch.charcol, cntv.fontline)
-							2: `display_string_character(OPTIONS,        cnth_fetch.charcol, cntv.fontline)
-							3: `display_string_character(HIGHSCORES,     cnth_fetch.charcol, cntv.fontline)
+							2: `display_string_character(PLAYVSRIVAL,    cnth_fetch.charcol, cntv.fontline)
+							3: `display_string_character(OPTIONS,        cnth_fetch.charcol, cntv.fontline)
 							default: rom_addr = CHAR_;
 						endcase
 					end
 				end
 			end
 			GS_OPTIONS: begin
-				options_is_values = cnth_fetch.val >= GS.render.options_values_subcols_offset;
-				off_charline = cntv.charline - GS.render.options_charlines_offset_selected + GS.navigation.selected_element;
-				cnth_fetch.start_subcols = options_is_values ? GS.render.options_values_subcols_offset : GS.render.options_subcols_offset;
-				if(cntv.charline == GS.render.options_charlines_offset_selected) begin // Selected Element line
-					// Add margin
-					cnth_fetch.start_subcols += options_is_values ? 1'd0 : GS.render.options_add_subcols_offset_selected;
-					// Increase size
-					cnth_fetch.pix_size = GS.options.PIX_W + (options_is_values ? 1'd0 : 1'd1);
-					cntv.pix_size       = GS.options.PIX_H + 1'd1;
+				off_charline 				= cntv.charline -  GS.render.options_charlines_offset_selected + GS.navigation.selected_element;
+				is_selected_option_line = cntv.charline == GS.render.options_charlines_offset_selected;
+				if(cnth_fetch.val >= GS.render.options_values_subcols_offset) begin
+					cnth_fetch.drawing_stage = OPTIONS_VALUES;
+					cnth_fetch.start_subcols = GS.render.options_values_subcols_offset;
+					if(is_selected_option_line) begin
+						cnth_fetch.pix_size = GS.options.PIX_W;
+						cntv.pix_size       = GS.options.PIX_H + 1'd1;
+					end
 				end else begin
-					// Revert increased size
+					cnth_fetch.drawing_stage = OPTIONS_NAMES;
+					cnth_fetch.start_subcols = GS.render.options_subcols_offset;
+					if(is_selected_option_line) begin
+						cnth_fetch.start_subcols += GS.render.options_add_subcols_offset_selected;
+						cnth_fetch.pix_size = GS.options.PIX_W + 1'd1;
+						cntv.pix_size       = GS.options.PIX_H + 1'd1;
+					end
+				end
+				if(!is_selected_option_line) begin
 					cnth_fetch.pix_size = GS.options.PIX_W;
 					cntv.pix_size       = GS.options.PIX_H;
 				end
+				
+				rom_addr = CHAR_;
 				if(cnth_fetch.val >= cnth_fetch.start_subcols) begin
 					if(cnth_fetch.val == cnth_fetch.start_subcols) begin
 						cnth_fetch.subcol  = 0;
@@ -274,8 +302,8 @@ always @(posedge clk) begin
 						cnth_fetch.fontcol = 0;
 						cnth_fetch.charcol = 0;
 					end
-					if(cnth_fetch.fontcol == 0 && cnth_fetch.subcol == 0) begin
-						if(options_is_values) begin
+					case(cnth_fetch.drawing_stage)
+						OPTIONS_VALUES: begin
 							case(off_charline)
 								1: `display_decimized_character(options_pin_colors, cnth_fetch.charcol, cntv.fontline)
 								2: `display_decimized_character(options_pins_count, cnth_fetch.charcol, cntv.fontline)
@@ -285,7 +313,8 @@ always @(posedge clk) begin
 								6: `display_decimized_character(options_palette_id, cnth_fetch.charcol, cntv.fontline)
 								default: rom_addr = CHAR_;
 							endcase
-						end else begin
+						end
+						OPTIONS_NAMES: begin
 							case(off_charline)
 								0: `display_string_character(BACK,        cnth_fetch.charcol, cntv.fontline)
 								1: `display_string_character(PINCOLORS,   cnth_fetch.charcol, cntv.fontline)
@@ -297,28 +326,27 @@ always @(posedge clk) begin
 								default: rom_addr = CHAR_;
 							endcase
 						end
-					end
-				end else begin
-					rom_addr = CHAR_;
+					endcase
 				end
+				
 			end
 			GS_GAME: begin
-				cnth_fetch.board_drawing_stage = BOARD_NONE;
+				is_board_current_guess = cntv.charline == GS.render.charlines - 1'd1;
 				if(cntv.charline == GS.render.board_text_dialog_charlines_offset && GS.board.dial_state != DIAL_NONE)
-					cnth_fetch.board_drawing_stage = BOARD_TEXT_DIALOG;
+					cnth_fetch.drawing_stage = BOARD_TEXT_DIALOG;
 				else if(GS.navigation.is_selected_sub &&
 						  cntv.charline >= GS.render.board_tiles_dialog_charlines_offset && 
 						  cntv.charline  < GS.render.board_tiles_dialog_charlines_offset + GS.render.board_tiles_dialog_height &&
 						  cnth_fetch.val < GS.render.board_tiles_dialog_subcols_end)
-																										cnth_fetch.board_drawing_stage = BOARD_TILE_DIALOG;
-				else if(cnth_fetch.val >= GS.render.board_hints_subcols_offset)   cnth_fetch.board_drawing_stage = BOARD_HINTS;
-				else if(cnth_fetch.val >= GS.render.board_border2_subcols_offset) cnth_fetch.board_drawing_stage = BOARD_BORDER_R;
-				else if(cnth_fetch.val >= GS.render.board_tiles_subcols_offset)   cnth_fetch.board_drawing_stage = BOARD_TILES;
-				else if(cnth_fetch.val >= GS.render.board_border1_subcols_offset) cnth_fetch.board_drawing_stage = BOARD_BORDER_L;
-				else if(cntv.charline + 1'd1 != GS.render.charlines && cnth_fetch.val >= GS.render.board_index_subcols_offset) cnth_fetch.board_drawing_stage = BOARD_INDEX;
-				else if(cntv.charline + 1'd1 == GS.render.charlines && cnth_fetch.val >= GS.render.board_guess_subcols_offset) cnth_fetch.board_drawing_stage = BOARD_GUESS;
-				else if(cntv.charline + 1'd1 == GS.render.charlines && cnth_fetch.val >= GS.render.board_exit_subcols_offset)  cnth_fetch.board_drawing_stage = BOARD_EXIT;
-				case(cnth_fetch.board_drawing_stage)
+																										cnth_fetch.drawing_stage = BOARD_TILE_DIALOG;
+				else if(cnth_fetch.val >= GS.render.board_hints_subcols_offset)   cnth_fetch.drawing_stage = BOARD_HINTS;
+				else if(cnth_fetch.val >= GS.render.board_border2_subcols_offset) cnth_fetch.drawing_stage = BOARD_BORDER_R;
+				else if(cnth_fetch.val >= GS.render.board_tiles_subcols_offset)   cnth_fetch.drawing_stage = BOARD_TILES;
+				else if(cnth_fetch.val >= GS.render.board_border1_subcols_offset) cnth_fetch.drawing_stage = BOARD_BORDER_L;
+				else if(!is_board_current_guess && cnth_fetch.val >= GS.render.board_index_subcols_offset) cnth_fetch.drawing_stage = BOARD_INDEX;
+				else if( is_board_current_guess && cnth_fetch.val >= GS.render.board_guess_subcols_offset) cnth_fetch.drawing_stage = BOARD_GUESS;
+				else if( is_board_current_guess && cnth_fetch.val >= GS.render.board_exit_subcols_offset)  cnth_fetch.drawing_stage = BOARD_EXIT;
+				case(cnth_fetch.drawing_stage)
 					BOARD_TILE_DIALOG, BOARD_TEXT_DIALOG: cnth_fetch.start_subcols = 0;
 					BOARD_HINTS:    cnth_fetch.start_subcols = GS.render.board_hints_subcols_offset;
 					BOARD_BORDER_R: cnth_fetch.start_subcols = GS.render.board_border2_subcols_offset;
@@ -335,13 +363,10 @@ always @(posedge clk) begin
 					cnth_fetch.charcol = 0;
 				end
 				cnth_fetch.pix_size = GS.options.PIX_W;
-				case(cnth_fetch.board_drawing_stage)
+				case(cnth_fetch.drawing_stage)
 					BOARD_HINTS: begin // Hints
-						if(cnth_fetch.charcol < 2) begin
-							`display_decimized_character2(board_current_hints_yellow_decimized, cnth_fetch.charcol, cntv.fontline)
-						end else begin
-							`display_decimized_character2(board_current_hints_green_decimized,  cnth_fetch.charcol-2'd2, cntv.fontline)
-						end
+						if(cnth_fetch.charcol < 2) `display_decimized_character2(board_current_hints_yellow_decimized, cnth_fetch.charcol, cntv.fontline)
+						else 								`display_decimized_character2(board_current_hints_green_decimized,  cnth_fetch.charcol-2'd2, cntv.fontline)
 					end
 					BOARD_TILES: begin // Tiles
 						cnth_fetch.pix_size = GS.render.board_tile_pix_width;
@@ -369,6 +394,13 @@ always @(posedge clk) begin
 							DIAL_GUESSER:		`display_string_character(GUESSER,		cnth_fetch.charcol, cntv.fontline)
 							DIAL_SETTER:		`display_string_character(SETTER,		cnth_fetch.charcol, cntv.fontline)
 						endcase
+						cnth_fetch.dialog_input_charcol = cnth_fetch.charcol - GS.render.board_text_dialog_input_charcols_offset;
+						if(cnth_fetch.dialog_input_charcol < 2'd2) begin
+							case(GS.board.dial_state)
+								DIAL_HINTSGREEN:	`display_decimized_character2(board_current_proposed_green_decimized,  cnth_fetch.dialog_input_charcol, cntv.fontline)
+								DIAL_HINTSYELLOW:	`display_decimized_character2(board_current_proposed_yellow_decimized, cnth_fetch.dialog_input_charcol, cntv.fontline)
+							endcase
+						end
 					end
 					default: begin
 						rom_addr = CHAR_;
@@ -402,132 +434,120 @@ always @(posedge clk) begin
 	//// DRAW ////
 	
 	if(!cnth.blanking && !cntv.blanking) begin
-		is_selected = 0; //(GS.navigation.selected_element + 10'd2 == cntv.charline) && (cntv.fontline != FONT_H);
+	
+		blink = !time_counter[16] && !time_counter[17];
+		is_bg = (cntv.fontline == FONT_H || cnth.fontcol == FONT_W) || (~rom_q[FONT_W - 1 - (cnth.fontcol)]);
 		case(GS.state_name)
-			GS_MAIN_MENU: is_selected = (GS.navigation.selected_element + GS.render.title_menu_charlines_offset == cntv.charline) && (cntv.fontline != FONT_H);
-			GS_OPTIONS:   is_selected = (GS.render.options_charlines_offset_selected == cntv.charline) && (cntv.fontline != FONT_H);
-			GS_GAME:		  begin 
-				case(GS.navigation.selected_element)
-					0: is_selected = (cnth.board_drawing_stage == BOARD_EXIT);
-					1: is_selected = (cnth.board_drawing_stage == BOARD_GUESS);
-					default: is_selected = (cnth.board_drawing_stage == BOARD_TILES && cnth.charcol == GS.navigation.selected_element - 2'd2);
+			GS_MAIN_MENU: begin
+				is_selected = (GS.navigation.selected_element == off_charline) && (cntv.fontline != FONT_H);
+				case(cnth.drawing_stage)
+					MAIN_MENU_TITLE:  color = is_bg ? GS.render.palette.bg : (cnth.val[2:0] + cntv.val[4:2]);
+					MAIN_MENU_OPTION: color = get_palette_color(is_bg, is_selected);
+					DRAWING_STAGE_NONE: color = GS.render.palette.bg;
 				endcase
-				is_selected |= (cnth.board_drawing_stage == BOARD_TEXT_DIALOG);
 			end
-		endcase
-		
-		// Blinking
-		blink = time_counter[16];
-		if(	GS.state_name == GS_OPTIONS && // Digits in advanced options modifying
-				is_selected &&
-				GS.navigation.is_selected_sub &&
-				GS.navigation.selected_sub_element == cnth.charcol &&
-				cnth.val >= GS.render.options_values_subcols_offset &&
-				blink ) begin
-			is_bg = 1'd1;
-		end else if(GS.state_name == GS_GAME && is_selected && (cnth.board_drawing_stage != BOARD_TEXT_DIALOG) && blink) begin // Game board elements
-			is_bg = 1'd1;
-		end else begin
-			is_bg = (cntv.fontline == FONT_H || cnth.fontcol == FONT_W) || (~rom_q[FONT_W - 1 - (cnth.fontcol)]);
-		end
-		
-		color = is_bg ? (is_selected ? GS.render.palette.selected_bg : GS.render.palette.bg) : (is_selected ? GS.render.palette.selected : GS.render.palette.text);
-		
-		
-		if(GS.state_name == GS_GAME) begin
-			case(cnth.board_drawing_stage)
-				BOARD_HINTS: begin // Hints
-					color = GS.render.palette.bg;
-					if(board_current_line_index <= GS.board.guessed_count &&
-					   cntv.charline + 1'd1 != GS.render.charlines &&
-						cnth.charcol < 3'd4) begin
-							if(is_bg) color = (cnth.charcol < 2'd2) ? 3'b110 : 3'b010;
-							else		 color = 3'b100;
-					end
+			GS_OPTIONS: begin
+				is_selected = (is_selected_option_line) && (cntv.fontline != FONT_H);
+				if(	is_selected &&
+						cnth.drawing_stage == OPTIONS_VALUES &&
+						GS.navigation.is_selected_sub &&
+						GS.navigation.selected_sub_element == cnth.charcol &&
+						blink ) begin
+					is_bg = 1'd1;
 				end
-				BOARD_BORDER_L, BOARD_BORDER_R: begin // Borders
-					color = (cnth.val <= cnth.start_subcols + GS.render.board_border_subcols_width) ? GS.render.palette.text : color;
-				end
-				BOARD_TILES: begin // Tiles
-					if(cnth.fontcol != FONT_W && 
-					   cntv.fontline != FONT_H && 
-						board_current_line_index <= GS.board.guessed_count &&
-						cnth.charcol < GS.options.pins_count) begin
-							if(cntv.charline + 1'd1 == GS.render.charlines) begin
-								color = (is_selected && blink) ? GS.render.palette.selected_bg : get_pin_color(GS.board.current_guess[cnth.charcol]);
-							end else begin
-								color = get_pin_color(board_ram_q[PIN_COLOR_W-1:0]);
-							end
+				color = get_palette_color(is_bg, is_selected);
+			end
+			GS_GAME: begin
+			
+				case(cnth.drawing_stage)
+					DRAWING_STAGE_NONE: color = GS.render.palette.bg;
+					BOARD_HINTS: begin // Hints
+						if(board_current_line_index <= GS.board.guessed_count &&
+							!is_board_current_guess &&
+							cnth.charcol < 3'd4) begin
+								if(is_bg) color = (cnth.charcol < 2'd2) ? 3'b110 : 3'b010;
+								else		 color = 3'b100;
+						end else
+							color = GS.render.palette.bg;
 					end
-					if(cnth.fontcol != FONT_W && 
-					   cntv.fontline != FONT_H &&
-						cntv.charline == 0 && 
-						GS.options.debug &&
-						cnth.charcol < GS.options.pins_count) begin
-							color = get_pin_color(GS.board.secret[cnth.charcol]);
+					BOARD_BORDER_L, BOARD_BORDER_R: begin // Borders
+						color = (cnth.val <= cnth.start_subcols + GS.render.board_border_subcols_width) ? GS.render.palette.text : color;
 					end
-				end
-				BOARD_TILE_DIALOG: begin
-					temp_color_index = truncate_11_to_COLOR_W(cnth.charcol + GS.render.board_tiles_dialog_width * (cntv.charline - GS.render.board_tiles_dialog_charlines_offset));
-					color = (temp_color_index >= GS.options.pin_colors ? 
-						GS.render.palette.bg : 
-						get_pin_color(temp_color_index));
+					BOARD_TILE_DIALOG: begin // Tile Dialog
+						temp_color_index = cnth.charcol[2:0] + GS.render.board_tiles_dialog_width * (cntv.charline[2:0] - GS.render.board_tiles_dialog_charlines_offset);
+						is_selected =  (temp_color_index == GS.navigation.selected_sub_element) || 
+											(temp_color_index == GS.navigation.selected_sub_element - GS.render.board_tiles_dialog_width &&
+												cntv.fontline == FONT_H) || 
+											(temp_color_index == GS.navigation.selected_sub_element - 1'd1 &&
+												cnth.fontcol  == FONT_W);
 						
-					is_selected = (temp_color_index == GS.navigation.selected_sub_element);
-					
-					if(blink && is_selected) begin
-						color = GS.render.palette.selected_bg;
-					end
-					
-					if(cntv.fontline == FONT_H || cnth.fontcol == FONT_W) begin
-						if(cntv.fontline == FONT_H &&
-						   cntv.charline + 1'd1 == GS.render.board_tiles_dialog_charlines_offset + GS.render.board_tiles_dialog_height) begin
-								color = GS.render.palette.text;
-						end else if(cnth.fontcol == FONT_W &&
-									   cnth.charcol + 1'd1 == GS.render.board_tiles_dialog_width) begin
-								color = GS.render.palette.text;
+						if(cntv.fontline != FONT_H && cnth.fontcol != FONT_W) begin
+							if(temp_color_index >= GS.options.pin_colors || (blink && is_selected)) color = get_palette_color(1'd1, is_selected);
+							else 																	 						color = get_pin_color(temp_color_index);
 						end else begin
-								color = is_selected ? GS.render.palette.selected_bg : GS.render.palette.bg;
+							color = (is_selected) ? GS.render.palette.selected_bg : GS.render.palette.bg;
+							if((cntv.fontline == FONT_H && cntv.charline == GS.render.board_tiles_dialog_charlines_end) ||
+							   (cnth.fontcol  == FONT_W && cnth.charcol  == GS.render.board_tiles_dialog_width - 1'd1)) begin
+									color = GS.render.palette.text;
+							end
 						end
 					end
-				end
-				BOARD_TEXT_DIALOG: begin
-					
-				end
-			endcase
-			
-			if(cntv.fontline == FONT_H) begin 
-				// Upper border of color selection
-				if(GS.navigation.is_selected_sub && 
-				   cntv.charline + 1'd1 == GS.render.board_tiles_dialog_charlines_offset &&
-					cnth.val < GS.render.board_tiles_dialog_subcols_end) begin
-						color = GS.render.palette.text;
-				end else
-				// Row Seperators
-				if((cnth.board_drawing_stage == BOARD_BORDER_L || cnth.board_drawing_stage == BOARD_TILES) &&(
-						(cntv.charline >= GS.render.charlines - 2'd2) ||
-						cnth.val - GS.render.board_border1_subcols_end    <= GS.render.board_border_seperator_length ||
-						GS.render.board_border2_subcols_offset - cnth.val <= GS.render.board_border_seperator_length) ) begin
+					BOARD_TILES: begin // Tiles
+						is_selected = (cnth.charcol == GS.navigation.selected_element - 2'd2);
+						color = get_palette_color(1'd1, is_selected);
+						if(cnth.fontcol != FONT_W && cntv.fontline != FONT_H) begin
+							if(board_current_line_index <= GS.board.guessed_count) begin
+								if(is_board_current_guess) color = get_pin_color(GS.board.current_guess[cnth.charcol]);
+								else                       color = get_pin_color(board_ram_q[PIN_COLOR_W-1:0]);
+							end
+							if(cntv.charline == 0 && GS.options.debug) color = get_pin_color(GS.board.secret[cnth.charcol]);
+						end
+					end
+					BOARD_GUESS: begin
+						is_selected = GS.navigation.selected_element == 1'd1;
+						color = get_palette_color(is_bg, is_selected);
+					end
+					BOARD_EXIT: begin
+						is_selected = GS.navigation.selected_element == 1'd0;
+						color = get_palette_color(is_bg, is_selected);
+					end
+					BOARD_INDEX: begin
+						color = get_palette_color(is_bg, 1'd0);
+					end
+					BOARD_TEXT_DIALOG: begin
+						color = get_palette_color(is_bg || (cnth.dialog_input_charcol < 2'd2 && blink), 1'd1);
+					end
+				endcase
+				
+				if(cntv.fontline == FONT_H) begin 
+					// Upper border of color selection
+					if(GS.navigation.is_selected_sub && 
+						cntv.charline + 1'd1 == GS.render.board_tiles_dialog_charlines_offset &&
+						cnth.val < GS.render.board_tiles_dialog_subcols_end) begin
 							color = GS.render.palette.text;
+					end else
+					// Row Seperators
+					if(cnth.drawing_stage == BOARD_BORDER_L || cnth.drawing_stage == BOARD_TILES) begin
+						if( board_current_line_index < 2'd2 ||
+							 cnth.val - GS.render.board_border1_subcols_end    <= GS.render.board_border_seperator_length ||
+							 GS.render.board_border2_subcols_offset - cnth.val <= GS.render.board_border_seperator_length) begin
+								color = GS.render.palette.text;
+						 end
+					end
 				end
+				
+				if(cntv.charline >= GS.render.charlines) begin
+						color = GS.render.palette.bg;
+				end
+				
 			end
-		end
-		
-		if(GS.state_name == GS_GAME && cntv.charline >= GS.render.charlines) begin
-				color = GS.render.palette.bg;
-		end
-		
-		if(GS.state_name == GS_MAIN_MENU) begin
-			if(cntv.charline == GS.render.title_charlines_offset) begin
-				color = is_bg ? color : (cnth.val[2:0] + cntv.val[4:2]); // TODO: random
-			end
-		end
-		
+		endcase
+	
 		if(GS.options.debug && cntv.val <= 5 && cnth.val <= 5) begin
 			color ^= 3'b100;
 		end
 		
-		//color[0] |= (cntv.fontline == 0);
+		//color[0] ^= (cnth.charcol == 0 && cnth.fontcol == 0);
 		//color[1] |= (cntv.charline == 3);
 	end
 end

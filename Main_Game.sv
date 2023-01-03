@@ -170,8 +170,8 @@ task reset_analysis();
 	GS.board.analyzed_secret = 0; //({max_pins_count{1'd1}} << GS.options.pins_count);
 endtask
 
-task reset_game(input reg is_vs_human);
-	GS.board.is_vs_human = is_vs_human;
+task reset_game(input ENUM_GAME_MODE gamemode);
+	GS.board.gamemode = gamemode;
 	GS.board.guessed_count = 0;
 	GS.board.scroll_offset = 0;
 	GS.board.current_guess = '{default: 0}; // This line crashes Quartus Prime, if outsie the Task
@@ -327,6 +327,8 @@ always @(posedge CLK_PLL) begin
 		GS.render.board_tiles_dialog_width  = (GS.options.pin_colors < 10 ? 3'd3 : (GS.options.pin_colors < 17 ? 3'd4 : 3'd5));
 		GS.render.board_tiles_dialog_height = (GS.options.pin_colors - 1'd1) / GS.render.board_tiles_dialog_width + 1'd1;
 		GS.render.board_tiles_dialog_subcols_end = GS.render.board_tiles_dialog_width * (FONT_W + 1'd1) * GS.options.PIX_W;
+		GS.render.board_tiles_dialog_charlines_end = GS.render.board_tiles_dialog_width - 1'd1;
+		GS.render.board_text_dialog_input_charcols_offset = GS.render.charcols - 2'd3;
 		
 		GS.render.values_updated = 1'd1;
 	end
@@ -345,11 +347,11 @@ always @(posedge CLK_PLL) begin
 			`dec_or_inc_clumped(GS.navigation.selected_element, 0, 3, BTN_EDGE_DOWN, BTN_EDGE_UP)
 			if(BTN_EDGE_ENTER) begin	
 				case(GS.navigation.selected_element)
-					0: begin // PLAY VS COMPUTER
+					0: begin // PLAY RANDOM
 						GS.navigation.selected_element = 0;
 						GS.navigation.selected_sub_element = 0;
 						GS.board.dial_state = DIAL_NONE;
-						reset_game(0);
+						reset_game(GAMEMODE_RANDOM);
 						if(!has_updated_seed) begin
 							has_updated_seed = 1;
 							rng_new_seed = time_counter;
@@ -357,19 +359,23 @@ always @(posedge CLK_PLL) begin
 						generated_secret_pins = 0;
 						GS.state_name = GS_GENERATE_PINS;
 					end
-					1: begin // PLAY VS HUMAN
+					1: begin // PLAY CUSTOM
 						GS.navigation.selected_element = 0;
 						GS.navigation.selected_sub_element = 0;
 						GS.board.dial_state = DIAL_ENTERSECRET;
-						reset_game(1);
+						reset_game(GAMEMODE_CUSTOM);
 						GS.state_name = GS_GAME;
 					end
-					2: begin // OPTIONS
+					2: begin // PLAY RIVAL
+						GS.navigation.selected_element = 0;
+						GS.navigation.selected_sub_element = 0;
+						GS.board.dial_state = DIAL_ENTERSECRET;
+						reset_game(GAMEMODE_RIVAL);
+						GS.state_name = GS_GAME;
+					end
+					3: begin // OPTIONS
 						GS.navigation.selected_element = 0;
 						GS.state_name = GS_OPTIONS;
-					end
-					3: begin // HIGHSCORES
-						//TODO
 					end
 				endcase
 			end
@@ -381,7 +387,7 @@ always @(posedge CLK_PLL) begin
 			case(GS.navigation.selected_element)
 				0: begin // BACK
 					if(BTN_EDGE_ENTER) begin
-						GS.navigation.selected_element = 2;
+						GS.navigation.selected_element = 3;
 						GS.state_name = GS_MAIN_MENU;
 					end
 				end
@@ -405,34 +411,66 @@ always @(posedge CLK_PLL) begin
 					reset_analysis();
 				end
 			end else begin
-				`dec_or_inc_clumped(GS.navigation.selected_element, 0, 1'd1 + GS.options.pins_count, BTN_EDGE_RIGHT, BTN_EDGE_LEFT)
-				`dec_or_inc_clumped(GS.board.scroll_offset, 0, GS.board.guessed_count == 0 ? 0 : GS.board.guessed_count-1'd1, BTN_EDGE_UP, BTN_EDGE_DOWN)
+				
+				case(GS.board.dial_state)
+					DIAL_HINTSGREEN: begin
+						`dec_or_inc_clumped(GS.navigation.selected_element, 0, 1'd1, BTN_EDGE_RIGHT, BTN_EDGE_LEFT)
+						`dec_or_inc_clumped(GS.board.proposed_green, 0, GS.options.pins_count, BTN_EDGE_UP, BTN_EDGE_DOWN)
+					end
+					DIAL_HINTSYELLOW: begin
+						`dec_or_inc_clumped(GS.navigation.selected_element, 0, 1'd1, BTN_EDGE_RIGHT, BTN_EDGE_LEFT)
+						`dec_or_inc_clumped(GS.board.proposed_yellow, 0, GS.options.pins_count, BTN_EDGE_UP, BTN_EDGE_DOWN)
+					end
+					default: begin
+						`dec_or_inc_clumped(GS.navigation.selected_element, 0, 1'd1 + GS.options.pins_count, BTN_EDGE_RIGHT, BTN_EDGE_LEFT)
+						`dec_or_inc_clumped(GS.board.scroll_offset, 0, GS.board.guessed_count == 0 ? 0 : GS.board.guessed_count-1'd1, BTN_EDGE_UP, BTN_EDGE_DOWN)
+					end
+				endcase
+				
 			
 				if(BTN_EDGE_ENTER) begin
 					case(GS.navigation.selected_element)
 						0: begin // EXIT
 							GS.state_name = GS_MAIN_MENU;
-							GS.navigation.selected_element = GS.board.is_vs_human;
+							GS.navigation.selected_element = GS.board.gamemode;
 						end
 						1: begin // GUESS
 							if(GS.board.is_guess_uploaded) begin
-								if(GS.board.dial_state == DIAL_NONE) begin
-									`inc_clumped(GS.board.guessed_count, GS.options.guesses)
-									GS.board.is_guess_entered = 1;
-									GS.board.is_guess_uploaded = 0;
-									check_for_win = 1;
-									reset_analysis();
-									if(GS.board.guessed_count >= GS.board.scroll_offset + GS.render.charlines) begin
-										GS.board.scroll_offset = GS.board.guessed_count - GS.render.charlines[7:0] + 1'd1;
+								case(GS.board.dial_state)
+									DIAL_HINTSYELLOW: begin
+										GS.board.dial_state = DIAL_HINTSGREEN;
 									end
-								end else if(GS.board.dial_state == DIAL_ENTERSECRET) begin
-									GS.board.secret = GS.board.current_guess;
-									GS.board.dial_state = DIAL_NONE;
-									GS.board.current_guess = '{default: 0};
-									GS.board.is_guess_entered = 1;
-									GS.board.is_guess_uploaded = 0;
-									reset_analysis();
-								end
+									DIAL_HINTSGREEN: begin
+										if(GS.board.calculated_green  != GS.board.proposed_green ||
+											GS.board.calculated_yellow != GS.board.proposed_yellow) begin
+												GS.board.dial_state = DIAL_GUESSER;
+										end else begin
+											GS.board.dial_state = DIAL_NONE;
+										end
+									end
+									DIAL_NONE: begin
+										if(GS.board.gamemode == GAMEMODE_RIVAL) begin
+											GS.board.dial_state = DIAL_HINTSYELLOW;
+										end else begin
+											`inc_clumped(GS.board.guessed_count, GS.options.guesses)
+											GS.board.is_guess_entered = 1;
+											GS.board.is_guess_uploaded = 0;
+											check_for_win = 1;
+											reset_analysis();
+											if(GS.board.guessed_count >= GS.board.scroll_offset + GS.render.charlines) begin
+												GS.board.scroll_offset = GS.board.guessed_count - GS.render.charlines[7:0] + 1'd1;
+											end
+										end
+									end
+									DIAL_ENTERSECRET: begin
+										GS.board.secret = GS.board.current_guess;
+										GS.board.dial_state = DIAL_NONE;
+										GS.board.current_guess = '{default: 0};
+										GS.board.is_guess_entered = 1;
+										GS.board.is_guess_uploaded = 0;
+										reset_analysis();
+									end
+								endcase
 							end
 						end
 						default: begin // TILES
@@ -483,7 +521,7 @@ always @(posedge CLK_PLL) begin
 					GS.board.is_guess_uploaded = 1;
 					
 					if(check_for_win) begin
-						if(GS.board.is_vs_human) begin
+						if(GS.board.gamemode != GAMEMODE_RANDOM) begin
 							if(GS.board.calculated_green == GS.options.pins_count) begin
 								GS.board.dial_state = DIAL_GUESSER;
 							end else if(GS.board.guessed_count >= GS.options.guesses) begin
