@@ -515,7 +515,9 @@ always @(posedge clk) begin
 						color = get_palette_color(is_bg, 1'd0);
 					end
 					BOARD_TEXT_DIALOG: begin
-						color = get_palette_color(is_bg || (cnth.dialog_input_charcol < 2'd2 && blink), 1'd1);
+						if     (cntv.fontline == FONT_H && GS.board.dial_state == DIAL_HINTSGREEN)  color = C_GREEN;
+						else if(cntv.fontline == FONT_H && GS.board.dial_state == DIAL_HINTSYELLOW) color = C_YELLOW;
+						else    color = get_palette_color(is_bg || (blink && cnth.dialog_input_charcol < 2'd2), 1'd1);
 					end
 				endcase
 				

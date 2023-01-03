@@ -21,13 +21,14 @@
 	+ better color selection dialog
 	+ better tiles colors for different palettes
 	+ initial color selection (vs human)
-	- rival mode (rename game modes)
-	- confirmation screen (vs human)
+	+ rival mode (rename game modes)
+	? confirmation screen (vs human)
 	- endscreens
 	- preaty border
 	- preaty backgound
 
-
+- flash
+	
 - make more advanced options
 	- vga / hdmi parameters
 	- resolutions (dynamic pixel sizes)
