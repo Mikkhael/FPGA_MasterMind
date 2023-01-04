@@ -76,6 +76,15 @@ wire         board_ram_wclk = CLK_PLL;
 wire         board_ram_rclk;
 BOARD_RAM board_ram(board_ram_data, board_ram_raddr, board_ram_rclk, board_ram_waddr, board_ram_wclk, board_ram_wen, board_ram_q);
 
+reg  		    star_ram_wen  = 0;
+reg  [63:0]  star_ram_data = 0;
+wire [63:0]  star_ram_q;
+reg  [8:0]   star_ram_waddr = 0;
+wire [8:0]   star_ram_raddr;
+wire         star_ram_wclk = CLK_PLL;
+wire         star_ram_rclk;
+STAR_RAM star_ram(star_ram_data, star_ram_raddr, star_ram_rclk, star_ram_waddr, star_ram_wclk, star_ram_wen, star_ram_q);
+
 st_GAME_STATE GS = '{default:0,
 	state_name: GS_MAIN_MENU,
 	options: '{
@@ -90,6 +99,12 @@ st_GAME_STATE GS = '{default:0,
 		default:0,
 		palette: palettes[0]
 	}
+//	firework: '{
+//		x: 11'd200,
+//		y: 11'd300,
+//		p: 11'd50,
+//		r: 11'd300
+//	}
 };
 st_GAME_STATE GS_vga;
 
@@ -113,12 +128,12 @@ endfunction
 
 wire [STARS_X_W-1:0] star_index_x = time_counter[STARS_X_W-1 : 0];
 wire [STARS_Y_W-1:0] star_index_y = time_counter[STARS_X_W+STARS_Y_W-1 : STARS_X_W];
-wire all_stars_updated = (time_counter[STARS_X_W+STARS_Y_W-1 : 0] == {(STARS_X_W+STARS_Y_W-1){1'd1}});
+wire all_stars_updated = (time_counter[STARS_X_W+STARS_Y_W-1 : 0] == {(STARS_X_W+STARS_Y_W){1'd1}});
 
 reg update_stars = 1;
 
 parameter [5:0] update_stars_interval = 6'd20;
-parameter [5:0] update_stars_chance   = 6'd1;
+parameter [5:0] update_stars_chance   = 6'd2;
 
 parameter update_stars_pos_x = STAR_POS_W   + update_stars_chance;
 parameter update_stars_pos_y = STAR_POS_W   + update_stars_pos_x;
@@ -126,7 +141,12 @@ parameter update_stars_stage = STAR_STAGE_W + update_stars_pos_y;
 parameter update_stars_color = 3 			  + update_stars_stage;
 
 
-VGA_Game_Renderer vga(CLK_VGA, font_rom_clk, font_rom_addr, font_rom_q, board_ram_rclk, board_ram_raddr, board_ram_q, GS_vga, GS_vga_decim, time_counter, {VGA_R, VGA_G, VGA_B}, VGA_HSYNC, VGA_VSYNC);
+VGA_Game_Renderer vga(	CLK_VGA, font_rom_clk, font_rom_addr, font_rom_q,
+								board_ram_rclk, board_ram_raddr, board_ram_q, 
+								star_ram_rclk, star_ram_raddr, star_ram_q, 
+								GS_vga, GS_vga_decim,
+								time_counter, 
+								{VGA_R, VGA_G, VGA_B}, VGA_HSYNC, VGA_VSYNC);
 
 `define add_clumped(value, step, max) \
 	value = (value >= (max) || (step) >= (max) - value) ? (max) : (value + (step));
@@ -240,15 +260,26 @@ endfunction
 // Ram_Upload_T = CLK_T * 2^11 = 4.096 ms
 
 reg [(PIN_POS_W*2):0] ram_loader_step = 0;
-wire [PIN_POS_W-1:0] ram_loader_step_low    = ram_loader_step[PIN_POS_W-1:0];
-wire [PIN_POS_W-1:0] ram_loader_step_high   = ram_loader_step[(2*PIN_POS_W)-1:PIN_POS_W];
-wire ram_loader_step_differnt_hints_section = ram_loader_step[2*PIN_POS_W];
+wire [PIN_POS_W-1:0]  ram_loader_step_low    = ram_loader_step[PIN_POS_W-1:0];
+wire [PIN_POS_W-1:0]  ram_loader_step_high   = ram_loader_step[(2*PIN_POS_W)-1:PIN_POS_W];
+wire ram_loader_step_differnt_hints_section  = ram_loader_step[2*PIN_POS_W];
+
+
+wire show_firework = GS.state_name == GS_GAME && (
+							GS.board.dial_state == DIAL_YOUWIN  ||
+							GS.board.dial_state == DIAL_GUESSER ||
+							GS.board.dial_state == DIAL_SETTER);
+							
+parameter firework_starting_p = 11'd16;
+wire firework_change_r = time_counter[10:0] == 0;
+wire firework_change_p = time_counter[16:0] == 0;
 
 reg check_for_win = 0;
 
 always @(posedge CLK_PLL) begin
 	
 	board_ram_wen = 0;
+	star_ram_wen = 0;
 	rng_new_seed = 0;
 	
 	GS.options.debug = BTN_DEB_DEBUG;
@@ -277,10 +308,21 @@ always @(posedge CLK_PLL) begin
 			GS.render.values_updated = 0;
 		end
 		
-		GS.stars[0][0].pos_x = rng_out_full[STAR_POS_W-1:0];
-		GS.stars[0][0].pos_y = rng_out_full[2*STAR_POS_W-1:STAR_POS_W];
-		GS.stars[0][0].stage += 1'd1;
-		GS.stars[0][0].color = rng_out_full[2*STAR_POS_W+2:2*STAR_POS_W];
+	end
+	
+	if(show_firework) begin
+		if(GS.firework.p == 0) begin
+			GS.firework.x = rng_out[10:0]  % RES_H;
+			GS.firework.y = rng_out[21:10] % RES_V;
+			GS.firework.p = firework_starting_p;
+			GS.firework.r = 0;
+		end
+		if(firework_change_p) begin
+			--GS.firework.p;
+		end
+		if(firework_change_r) begin
+			++GS.firework.r;
+		end
 	end
 	
 	/// STARS ///
@@ -289,18 +331,23 @@ always @(posedge CLK_PLL) begin
 		update_stars = 1;
 	end
 	if(update_stars && (rng_out_full[update_stars_chance-1:0] == 0)) begin
-		GS.stars[star_index_y][star_index_x].pos_x = rng_out_full[update_stars_pos_x-1	: update_stars_chance];
-		GS.stars[star_index_y][star_index_x].pos_y = rng_out_full[update_stars_pos_y-1	: update_stars_pos_x];
-		GS.stars[star_index_y][star_index_x].stage = rng_out_full[update_stars_stage-1	: update_stars_pos_y];
-		GS.stars[star_index_y][star_index_x].color = rng_out_full[update_stars_color-1	: update_stars_stage];
+		star_ram_wen   = 1;
+		star_ram_data  = rng_out_full[STAR_W+update_stars_chance-1:update_stars_chance];
+		star_ram_waddr = {{(9-STARS_X_W-STARS_Y_W){1'b0}}, star_index_y, star_index_x};
 	end
 	if(all_stars_updated) begin
 		update_stars = 0;
 	end
 	
+	if(show_firework)
+	
 	/// UPDATE RENDERING ///
 	
 	LEDS[3] = !GS.render.values_updated;
+//	LEDS[3] = (stars_visited == (32'd1 << (STARS_X_W + STARS_Y_W))+2'd1);
+//	LEDS[2] = (stars_visited == (32'd1 << (STARS_X_W + STARS_Y_W)));
+//	LEDS[1] = (stars_visited == (32'd1 << (STARS_X_W + STARS_Y_W))-2'd1);
+//	LEDS[0] = (stars_visited == (32'd1 << (STARS_X_W + STARS_Y_W))-2'd2);
 	
 	if(!GS.render.values_updated) begin
 		

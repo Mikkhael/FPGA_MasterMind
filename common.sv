@@ -133,12 +133,13 @@ typedef struct {
 	st_GS_PALETTE palette;
 } st_GS_RENDER;
 
-parameter [4:0] STAR_POS_W = 5'd5;
+parameter [4:0] STAR_POS_W = 5'd6;
 parameter [4:0] STAR_STAGE_W = 5'd3;
-parameter [4:0] STARS_X_W = 5'd2;
-parameter [4:0] STARS_Y_W = 5'd2;
+parameter [4:0] STARS_X_W = 5'd4;
+parameter [4:0] STARS_Y_W = 5'd4;
+parameter [5:0] STAR_W = STAR_POS_W * 2'd2 + STAR_STAGE_W + 2'd3;
 
-typedef struct {
+typedef struct packed {
 	reg [STAR_POS_W-1:0] pos_x;
 	reg [STAR_POS_W-1:0] pos_y;
 	reg [STAR_STAGE_W-1:0] stage;
@@ -146,12 +147,19 @@ typedef struct {
 } st_STAR;
 
 typedef struct {
+	reg [10:0] x;
+	reg [10:0] y;
+	reg [10:0] p;
+	reg [10:0] r;
+} st_FIREWORK;
+
+typedef struct {
 	GAME_STATE_NAME 	state_name;
 	st_GS_NAVIGATION	navigation;
 	st_GS_OPTIONS	 	options;
 	st_GS_RENDER      render;
 	st_GS_BOARD			board;
-	st_STAR				stars[0:(1 << STARS_X_W)-1][0:(1 << STARS_Y_W)-1];
+	st_FIREWORK			firework;
 } st_GAME_STATE;
 
 // DECIMALIZER

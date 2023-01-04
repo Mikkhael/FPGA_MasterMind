@@ -9,6 +9,10 @@ module VGA_Game_Renderer(
 	output reg [11:0] board_ram_raddr = 0,
 	input wire [7:0]  board_ram_q,
 	
+	output wire star_ram_rclk,
+	output wire [8:0]  star_ram_raddr,
+	input wire [63:0]  star_ram_q,
+	
 	input st_GAME_STATE GS,
 	input st_GS_DECIMALIZED GS_decim,
 	
@@ -87,6 +91,7 @@ assign VSYNC = (cntv.val >= RES_V + BLK_VF && cntv.val < RES_V + BLK_VF + BLK_VT
 
 assign rom_clk = clk;
 assign board_ram_rclk = clk;
+assign star_ram_rclk  = clk;
 
 
 task automatic advance_counters_h(ref st_GAME_STATE GS, ref st_counters_h cnth);
@@ -227,13 +232,39 @@ DIV_MOD #(.W_in(8), .W_div(4)) dm_propo_green  (GS.board.proposed_green,    boar
 DIV_MOD #(.W_in(8), .W_div(4)) dm_propo_yellow (GS.board.proposed_yellow,   board_current_proposed_yellow_decimized[0], board_current_proposed_yellow_decimized[1]);
 
 
-wire [STAR_POS_W-1:0] x = cnth.val[STAR_POS_W-1:0];
-wire [STAR_POS_W-1:0] y = cntv.val[STAR_POS_W-1:0];
-wire [STARS_X_W-1:0] star_index_x = cnth.val[STAR_POS_W+STARS_X_W-1 : STAR_POS_W];
-wire [STARS_Y_W-1:0] star_index_y = cntv.val[STAR_POS_W+STARS_Y_W-1 : STAR_POS_W];
+wire [STAR_POS_W-1:0] sx = cnth.val[STAR_POS_W-1:0];
+wire [STAR_POS_W-1:0] sy = cntv.val[STAR_POS_W-1:0];
+wire [STARS_X_W-1:0] star_index_x = cnth_fetch.val[STAR_POS_W+STARS_X_W-1 : STAR_POS_W];
+wire [STARS_Y_W-1:0] star_index_y = cntv.val		  [STAR_POS_W+STARS_Y_W-1 : STAR_POS_W];
+
+assign star_ram_raddr = {{(9-STARS_X_W-STARS_Y_W){1'd0}}, star_index_y, star_index_x};
 
 st_STAR star;
-assign star = GS.stars[star_index_y][star_index_x];
+assign star = star_ram_q[STAR_W-1:0];
+
+
+
+wire [10:0] fx   = cnth.val > GS.firework.x ? cnth.val - GS.firework.x : GS.firework.x - cnth.val;
+wire [10:0] fy   = cntv.val > GS.firework.y ? cntv.val - GS.firework.y : GS.firework.y - cntv.val;
+wire [21:0] fx2  = fx * fx;
+wire [21:0] fy2  = fy * fy;
+wire [10:0] fx2c = fx2[10:0];
+wire [10:0] fy2c = fy2[10:0];
+
+wire [21:0] fr2  = GS.firework.r * GS.firework.r;
+wire [21:0] fp2  = GS.firework.p * GS.firework.p;
+wire [10:0] fp2c = fp2[10:0];
+
+wire show_firework = GS.state_name == GS_GAME && (
+							GS.board.dial_state == DIAL_YOUWIN  ||
+							GS.board.dial_state == DIAL_GUESSER ||
+							GS.board.dial_state == DIAL_SETTER);
+							
+wire firework_color_scheme = GS.board.dial_state == DIAL_YOUWIN || GS.board.dial_state == DIAL_GUESSER;
+
+wire [2:0] firework_color = (cnth.val[0] == cntv.val[0]) ?
+									(firework_color_scheme ? C_GREEN  : C_RED) :
+									(firework_color_scheme ? C_YELLOW : C_MAGENTA);
 
 always @(posedge clk) begin
 	
@@ -405,13 +436,13 @@ always @(posedge clk) begin
 					BOARD_EXIT:  `display_string_character_with_mask(EXIT,  cnth_fetch.charcol, cntv.fontline) // EXIT button
 					BOARD_TEXT_DIALOG: begin
 						case(GS.board.dial_state)
-							DIAL_YOUWIN:		`display_string_character(YOUWIN, 		 cnth_fetch.charcol, cntv.fontline)
-							DIAL_YOULOSE:		`display_string_character(GAMEOVER,	 cnth_fetch.charcol, cntv.fontline)
+							DIAL_YOUWIN:		`display_string_character(YOUWIN, 		cnth_fetch.charcol, cntv.fontline)
+							DIAL_YOULOSE:		`display_string_character(GAMEOVER,	   cnth_fetch.charcol, cntv.fontline)
 							DIAL_ENTERSECRET:	`display_string_character(ENTERSECRET, cnth_fetch.charcol, cntv.fontline)
-							DIAL_HINTSGREEN:	`display_string_character(HINTSGREEN,	 cnth_fetch.charcol, cntv.fontline)
+							DIAL_HINTSGREEN:	`display_string_character(HINTSGREEN,	cnth_fetch.charcol, cntv.fontline)
 							DIAL_HINTSYELLOW:	`display_string_character(HINTSYELLOW, cnth_fetch.charcol, cntv.fontline)
-							DIAL_GUESSER:		`display_string_character(GUESSER,		 cnth_fetch.charcol, cntv.fontline)
-							DIAL_SETTER:		`display_string_character(SETTER,		 cnth_fetch.charcol, cntv.fontline)
+							DIAL_GUESSER:		`display_string_character(GUESSER,		cnth_fetch.charcol, cntv.fontline)
+							DIAL_SETTER:		`display_string_character(SETTER,		cnth_fetch.charcol, cntv.fontline)
 						endcase
 						cnth_fetch.dialog_input_charcol = cnth_fetch.charcol - GS.render.board_text_dialog_input_charcols_offset;
 						if(cnth_fetch.dialog_input_charcol < 2'd2) begin
@@ -566,16 +597,28 @@ always @(posedge clk) begin
 		endcase
 		
 		
-		/// DRAW STARS ///
+		/// STARS ///
 		
-		if(color == GS.render.palette.bg) begin
-			if(x >= star.pos_x &&
-				y >= star.pos_y &&
-				x <  star.pos_x + star.stage &&
-				y <  star.pos_y + star.stage) begin
+		if(show_firework) begin
+			if(fx2c + fy2c <= fp2c && fx2 + fy2 <= fr2) begin
+				color ^= firework_color;
+			end
+		end else	if(color == GS.render.palette.bg) begin
+			if(sx >= star.pos_x &&
+				sy >= star.pos_y &&
+				sx <  star.pos_x + star.stage &&
+				sy <  star.pos_y + star.stage) begin
 					color = star.color;
 			end
 		end
+		
+		
+		
+		
+//		if(star_index_x[0] == 0) color ^= 3'b010;
+//		if(star_index_y[0] == 0) color ^= 3'b001;
+//		if(x == 0 || y == 0) 	 color ^= 3'b100;
+		
 		
 		/// DEBUG ///
 	
@@ -583,6 +626,7 @@ always @(posedge clk) begin
 			color ^= 3'b100;
 		end
 		
+
 		//color[0] ^= (cnth.charcol == 0 && cnth.fontcol == 0);
 		//color[1] |= (cntv.charline == 3);
 	end

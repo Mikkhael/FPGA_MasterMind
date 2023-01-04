@@ -1,16 +1,16 @@
 + remove unwanted seperations between chars
-- complate menus layout
++ complate menus layout
 	+ main manu
 	+ options
-	- controls
+	? controls
 + change pixels width dynamically
 + add macros/functions for strings display  
 + randomness
 	+ algorithm
 	+ secret
 + preety background
-- allow for more stars (with RAM)
-- move strings fully to ROM
++ allow for more stars (with RAM)
++ move strings fully to ROM
 + remove warnings with overflow
 + fix bug with incorect resizing (when in options with big pixels)
 
@@ -25,10 +25,10 @@
 	+ initial color selection (vs human)
 	+ rival mode (rename game modes)
 	? confirmation screen (vs human)
-	- endscreens
+	+ endscreens
 	- preety border
 
-- flash
+? flash 
 	
 - make more advanced options
 	- vga / hdmi parameters
