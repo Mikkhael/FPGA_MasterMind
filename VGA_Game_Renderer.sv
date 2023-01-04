@@ -167,11 +167,20 @@ endfunction
 `define display_string_character(name, index, fontline) \
 	rom_addr = (index < STR_``name``_LEN) ? (STR_``name[index] + (fontline << FONT_LINESHIFT)) : CHAR_;
 
+//`define display_static_string_character(name, index, fontline) \
+//	rom_addr = (index <  STR_``name``_LEN) ? ( LSPRITE_STATIC_STR_``name + index + (fontline << FONT_LINESHIFT)) : CHAR_;
+	
 `define display_string_character_with_mask(name, index, fontline) \
    begin \
 	`display_string_character(name, index, fontline) \
 	cnth_fetch.skip_spacing_once = (index < STR_``name``_LEN) && (STR_MASK_``name``[index]); \
 	end
+	
+//`define display_static_string_character_with_mask(name, index, fontline) \
+//   begin \
+//	`display_static_string_character(name, index, fontline) \
+//	cnth_fetch.skip_spacing_once = (index < STR_``name``_LEN) && (STR_MASK_``name``[index]); \
+//	end
 	
 function [2:0] get_visible_color(input [2:0] color);
 	get_visible_color = color;
@@ -198,6 +207,7 @@ reg blink = 0;
 
 reg [7:0] temp_color_index = 0;
 reg is_board_current_guess = 0;
+reg is_board_above_current_guess = 0;
 
 
 reg [10:0] board_current_line_index   = 0;
@@ -339,7 +349,8 @@ always @(posedge clk) begin
 				
 			end
 			GS_GAME: begin
-				is_board_current_guess = cntv.charline == GS.render.charlines - 1'd1;
+				is_board_current_guess 		  = cntv.charline == GS.render.charlines - 1'd1;
+				is_board_above_current_guess = cntv.charline == GS.render.charlines - 2'd2;
 				if(cntv.charline == GS.render.board_text_dialog_charlines_offset && GS.board.dial_state != DIAL_NONE)
 					cnth_fetch.drawing_stage = BOARD_TEXT_DIALOG;
 				else if(GS.navigation.is_selected_sub &&
@@ -394,13 +405,13 @@ always @(posedge clk) begin
 					BOARD_EXIT:  `display_string_character_with_mask(EXIT,  cnth_fetch.charcol, cntv.fontline) // EXIT button
 					BOARD_TEXT_DIALOG: begin
 						case(GS.board.dial_state)
-							DIAL_YOUWIN:		`display_string_character(YOUWIN, 		cnth_fetch.charcol, cntv.fontline)
-							DIAL_YOULOSE:		`display_string_character(GAMEOVER,	 	cnth_fetch.charcol, cntv.fontline)
+							DIAL_YOUWIN:		`display_string_character(YOUWIN, 		 cnth_fetch.charcol, cntv.fontline)
+							DIAL_YOULOSE:		`display_string_character(GAMEOVER,	 cnth_fetch.charcol, cntv.fontline)
 							DIAL_ENTERSECRET:	`display_string_character(ENTERSECRET, cnth_fetch.charcol, cntv.fontline)
-							DIAL_HINTSGREEN:	`display_string_character(HINTSGREEN,	cnth_fetch.charcol, cntv.fontline)
+							DIAL_HINTSGREEN:	`display_string_character(HINTSGREEN,	 cnth_fetch.charcol, cntv.fontline)
 							DIAL_HINTSYELLOW:	`display_string_character(HINTSYELLOW, cnth_fetch.charcol, cntv.fontline)
-							DIAL_GUESSER:		`display_string_character(GUESSER,		cnth_fetch.charcol, cntv.fontline)
-							DIAL_SETTER:		`display_string_character(SETTER,		cnth_fetch.charcol, cntv.fontline)
+							DIAL_GUESSER:		`display_string_character(GUESSER,		 cnth_fetch.charcol, cntv.fontline)
+							DIAL_SETTER:		`display_string_character(SETTER,		 cnth_fetch.charcol, cntv.fontline)
 						endcase
 						cnth_fetch.dialog_input_charcol = cnth_fetch.charcol - GS.render.board_text_dialog_input_charcols_offset;
 						if(cnth_fetch.dialog_input_charcol < 2'd2) begin
@@ -538,7 +549,8 @@ always @(posedge clk) begin
 					end else
 					// Row Seperators
 					if(cnth.drawing_stage == BOARD_BORDER_L || cnth.drawing_stage == BOARD_TILES) begin
-						if( board_current_line_index < 2'd2 ||
+						if( is_board_above_current_guess ||
+						    is_board_current_guess ||
 							 cnth.val - GS.render.board_border1_subcols_end    <= GS.render.board_border_seperator_length ||
 							 GS.render.board_border2_subcols_offset - cnth.val <= GS.render.board_border_seperator_length) begin
 								color = GS.render.palette.text;

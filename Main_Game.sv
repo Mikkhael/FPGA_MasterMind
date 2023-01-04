@@ -62,9 +62,9 @@ assign {LED3, LED2, LED1, LED0} = ~LEDS;
 // 1s ~ (1.048s) = 2^19 * CLK_T
 reg [31:0] time_counter = 0;
 
-wire [8:0] font_rom_addr;
-wire       font_rom_clk;
-wire [3:0] font_rom_q;
+wire [ADDR_W-1:0] font_rom_addr;
+wire       			font_rom_clk;
+wire [FONT_W-1:0] font_rom_q;
 FONT_ROM font_rom(font_rom_addr, font_rom_clk, font_rom_q);
 
 reg  		    board_ram_wen  = 0;

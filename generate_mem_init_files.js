@@ -2,6 +2,7 @@
 
 const MEM_INIT_FILENAME = 'font_mem_init.mif';
 const PARAMS_FILENAME = 'generated_params.vh';
+const generate_static_strings = 0;
 
 const fs = require('fs');
 
@@ -321,6 +322,7 @@ const FONT_DATA = [
         '..11',
     ]],
 ];
+const FONT_COUNT = FONT_DATA.length;
 
 
 const LONG_SPRITES_DATA = [
@@ -338,13 +340,6 @@ const LONG_SPRITES_DATA = [
         `1...1.1.1..1.1.1`,
         `1...1.1.1..1.111`,
     ]],
-    ['exit', [
-        `..........1...1.`,
-        `.............111`,
-        `.11..1.1..1...1.`,
-        `1111..1...1...1.`,
-        `.111.1.1..1...11`,
-    ]],
     ['Enter', [
         `..11.111`,
         `.11....1`,
@@ -357,11 +352,10 @@ const LONG_SPRITES_DATA = [
 const S = str => str.split('');
 const STRINGS = [
     ['TITLE', ['MM', ...S('ASTER'), 'Mind'], true],
-    ['PLAY VS COMPUTER'],
-    ['PLAY VS HUMAN'],
-    ['PLAY VS RIVAL', [...S('PLAY VS HUMAN'), 'Colon', ...S(' RIVAL MODE')]],
+    ['PLAY VS COMPUTER', 'PLAY RANDOM'],
+    ['PLAY VS HUMAN', 'PLAY CUSTOM'],
+    ['PLAY VS RIVAL', 'PLAY RIVAL'],
     ['OPTIONS'],
-    ['HIGHSCORES'],
 
     ['GUESS', ['Enter']],
     ['EXIT',  ['X']],
@@ -425,15 +419,12 @@ for(let i = 0; i < LONG_SPRITES_DATA.length; i++){
 
 // GENERATE LOOKUPS
 
-const FONT_COUNT = FONT_DATA.length;
-const LONG_SPRITES_COUNT = LONG_SPRITES_DATA.length;
-
 function convert_to_lookup_object(arr){
     let res = {};
     let acc = 0;
     for(let i=0; i<arr.length; i++){
         const len = arr[i][1][0].length / WIDTH;
-        res[arr[i][0]] = {off: acc, data: arr[1], len};
+        res[arr[i][0]] = {off: acc, data: arr[i][1], len};
         arr[i][2] = acc;
         arr[i][3] = len;
         acc += len;
@@ -441,10 +432,114 @@ function convert_to_lookup_object(arr){
     return [res, acc];
 }
 
-const [FONT_LOOKUP, FONT_ROW_WORDS_COUNT] = convert_to_lookup_object(FONT_DATA);
-const [LONG_SPRITES_LOOKUP, LONG_SPRITES_ROW_WORDS_COUNT] = convert_to_lookup_object(LONG_SPRITES_DATA);
+let [FONT_LOOKUP, FONT_ROW_WORDS_COUNT] = convert_to_lookup_object(FONT_DATA);
+let [LONG_SPRITES_LOOKUP, LONG_SPRITES_ROW_WORDS_COUNT] = convert_to_lookup_object(LONG_SPRITES_DATA);
 
+
+// STRINGS
+
+function string_to_sprite(string){
+    let [name, labels] = string;
+    if(labels === undefined){
+        labels = name;
+    }
+    if(typeof(labels) === "string"){
+        labels = labels.split('');
+    }
+    let datas = labels.map(label => {
+        if(FONT_LOOKUP[label]){
+            return [FONT_LOOKUP[label].data];
+        }
+        if(LONG_SPRITES_LOOKUP[label]){
+            let spr = LONG_SPRITES_LOOKUP[label];
+            let res = [];
+            for(let i=0; i<spr.len; i++){
+                res.push(spr.data.map(x => x.substr(WIDTH*i,WIDTH)));
+            }
+            return res;
+        }
+        console.error('NOT FOUND STRING LABEL: ', label);
+        return [0];
+    });
+
+    let compacted = datas.flat();
+    let res = [];
+    for(let i=0; i<HEIGHT; i++) {
+        res[i] = '';
+        for(let j=0; j<compacted.length; j++){
+            res[i] += compacted[j][i];
+        }
+    }
+    return res;    
+}
+
+//console.log(string_to_sprite(STRINGS[0]));
+
+function string_to_inds(string){
+    let [name, labels] = string;
+    if(labels === undefined){
+        labels = name;
+    }
+    if(typeof(labels) === "string"){
+        labels = labels.split('');
+    }
+    let inds = labels.map(label => {
+        if(FONT_LOOKUP[label]){
+            return [FONT_LOOKUP[label].off];
+        }
+        if(LONG_SPRITES_LOOKUP[label]){
+            let spr = LONG_SPRITES_LOOKUP[label];
+            let res = [];
+            for(let i=0; i<spr.len; i++){
+                res.push(spr.off + i + FONT_COUNT);
+            }
+            return res;
+        }
+        console.error('NOT FOUND STRING LABEL: ', label);
+        return [0];
+    });
+
+    return inds.flat();
+}
+function string_to_mask(string){
+    let [name, labels] = string;
+    if(labels === undefined){
+        labels = name;
+    }
+    if(typeof(labels) === "string"){
+        labels = labels.split('');
+    }
+    let mask = labels.map(label => {
+        if(FONT_LOOKUP[label]){
+            return [0];
+        }
+        if(LONG_SPRITES_LOOKUP[label]){
+            let spr = LONG_SPRITES_LOOKUP[label];
+            let res = [];
+            for(let i=0; i<spr.len-1; i++){
+                res.push(1);
+            }
+            return [...Array(spr.len-1).fill(1), 0];
+        }
+        console.error('NOT FOUND STRING LABEL: ', label);
+        return [0];
+    });
+
+    return mask.flat();
+}
+
+if(generate_static_strings) {
+    let static_strings = STRINGS.map(string => ["STATIC_STR_"+string[0].replace(/ /g, ''), string_to_sprite(string)])
+    LONG_SPRITES_DATA.push(...static_strings);
+    //console.log(static_strings);
+    //console.log(LONG_SPRITES_DATA);
+    [LONG_SPRITES_LOOKUP, LONG_SPRITES_ROW_WORDS_COUNT] = convert_to_lookup_object(LONG_SPRITES_DATA);
+}
+
+const STRINGS_INDS = STRINGS.map(string => {return {name: string[0].replace(/ /g, ''), inds: string_to_inds(string), mask: string_to_mask(string)} });
 const ALL_CHARS_DATA = [...FONT_DATA, ...LONG_SPRITES_DATA];
+
+const LONG_SPRITES_COUNT = LONG_SPRITES_DATA.length;
 
 // GENERATE MEM INIT
 
@@ -510,64 +605,6 @@ ${mem_file_content.toUpperCase()}
 END;
 
 `;
-
-
-// STRINGS
-
-function string_to_inds(string){
-    let [name, labels] = string;
-    if(labels === undefined){
-        labels = name;
-    }
-    if(typeof(labels) === "string"){
-        labels = labels.split('');
-    }
-    let inds = labels.map(label => {
-        if(FONT_LOOKUP[label]){
-            return [FONT_LOOKUP[label].off];
-        }
-        if(LONG_SPRITES_LOOKUP[label]){
-            let spr = LONG_SPRITES_LOOKUP[label];
-            let res = [];
-            for(let i=0; i<spr.len; i++){
-                res.push(spr.off + i + FONT_COUNT);
-            }
-            return res;
-        }
-        console.error('NOT FOUND STRING LABEL: ', label);
-        return [0];
-    });
-
-    return inds.flat();
-}
-function string_to_mask(string){
-    let [name, labels] = string;
-    if(labels === undefined){
-        labels = name;
-    }
-    if(typeof(labels) === "string"){
-        labels = labels.split('');
-    }
-    let mask = labels.map(label => {
-        if(FONT_LOOKUP[label]){
-            return [0];
-        }
-        if(LONG_SPRITES_LOOKUP[label]){
-            let spr = LONG_SPRITES_LOOKUP[label];
-            let res = [];
-            for(let i=0; i<spr.len-1; i++){
-                res.push(1);
-            }
-            return [...Array(spr.len-1).fill(1), 0];
-        }
-        console.error('NOT FOUND STRING LABEL: ', label);
-        return [0];
-    });
-
-    return mask.flat();
-}
-
-const STRINGS_INDS = STRINGS.map(string => {return {name: string[0].replace(/ /g, ''), inds: string_to_inds(string), mask: string_to_mask(string)} });
 
 /// PARAMETERS
 
