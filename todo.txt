@@ -8,7 +8,9 @@
 + randomness
 	+ algorithm
 	+ secret
-- preety background
++ preety background
+- allow for more stars (with RAM)
+- move strings fully to ROM
 + remove warnings with overflow
 + fix bug with incorect resizing (when in options with big pixels)
 
@@ -24,8 +26,7 @@
 	+ rival mode (rename game modes)
 	? confirmation screen (vs human)
 	- endscreens
-	- preaty border
-	- preaty backgound
+	- preety border
 
 - flash
 	

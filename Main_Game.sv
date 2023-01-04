@@ -101,7 +101,8 @@ reg has_updated_seed = 0;
 reg [31:0] rng_new_seed = 0;
 reg rng_en = 1;
 wire [31:0] rng_out;
-RNG rng(CLK_PLL, rng_en, rng_new_seed, rng_out);
+wire [63:0] rng_out_full;
+RNG rng(CLK_PLL, rng_en, rng_new_seed, rng_out, rng_out_full);
 
 reg [4:0] generated_secret_pins = 0;
 
@@ -109,6 +110,20 @@ localparam RNG_MOD_W = 8;
 function [PIN_COLOR_W-1:0] truncate_rng_mod_to_pin_color(input [RNG_MOD_W-1:0] val);
 	truncate_rng_mod_to_pin_color = val[PIN_COLOR_W-1:0];
 endfunction
+
+wire [STARS_X_W-1:0] star_index_x = time_counter[STARS_X_W-1 : 0];
+wire [STARS_Y_W-1:0] star_index_y = time_counter[STARS_X_W+STARS_Y_W-1 : STARS_X_W];
+wire all_stars_updated = (time_counter[STARS_X_W+STARS_Y_W-1 : 0] == {(STARS_X_W+STARS_Y_W-1){1'd1}});
+
+reg update_stars = 1;
+
+parameter [5:0] update_stars_interval = 6'd20;
+parameter [5:0] update_stars_chance   = 6'd1;
+
+parameter update_stars_pos_x = STAR_POS_W   + update_stars_chance;
+parameter update_stars_pos_y = STAR_POS_W   + update_stars_pos_x;
+parameter update_stars_stage = STAR_STAGE_W + update_stars_pos_y;
+parameter update_stars_color = 3 			  + update_stars_stage;
 
 
 VGA_Game_Renderer vga(CLK_VGA, font_rom_clk, font_rom_addr, font_rom_q, board_ram_rclk, board_ram_raddr, board_ram_q, GS_vga, GS_vga_decim, time_counter, {VGA_R, VGA_G, VGA_B}, VGA_HSYNC, VGA_VSYNC);
@@ -261,7 +276,29 @@ always @(posedge CLK_PLL) begin
 			GS.options.PIX_W += BTN_DEB_LEFT ? (BTN_DEB_RIGHT ? 1'd0 : 1'd1) : -1'd1;
 			GS.render.values_updated = 0;
 		end
+		
+		GS.stars[0][0].pos_x = rng_out_full[STAR_POS_W-1:0];
+		GS.stars[0][0].pos_y = rng_out_full[2*STAR_POS_W-1:STAR_POS_W];
+		GS.stars[0][0].stage += 1'd1;
+		GS.stars[0][0].color = rng_out_full[2*STAR_POS_W+2:2*STAR_POS_W];
 	end
+	
+	/// STARS ///
+	
+	if(time_counter[update_stars_interval-1:0] == 0) begin
+		update_stars = 1;
+	end
+	if(update_stars && (rng_out_full[update_stars_chance-1:0] == 0)) begin
+		GS.stars[star_index_y][star_index_x].pos_x = rng_out_full[update_stars_pos_x-1	: update_stars_chance];
+		GS.stars[star_index_y][star_index_x].pos_y = rng_out_full[update_stars_pos_y-1	: update_stars_pos_x];
+		GS.stars[star_index_y][star_index_x].stage = rng_out_full[update_stars_stage-1	: update_stars_pos_y];
+		GS.stars[star_index_y][star_index_x].color = rng_out_full[update_stars_color-1	: update_stars_stage];
+	end
+	if(all_stars_updated) begin
+		update_stars = 0;
+	end
+	
+	/// UPDATE RENDERING ///
 	
 	LEDS[3] = !GS.render.values_updated;
 	

@@ -217,6 +217,14 @@ DIV_MOD #(.W_in(8), .W_div(4)) dm_propo_green  (GS.board.proposed_green,    boar
 DIV_MOD #(.W_in(8), .W_div(4)) dm_propo_yellow (GS.board.proposed_yellow,   board_current_proposed_yellow_decimized[0], board_current_proposed_yellow_decimized[1]);
 
 
+wire [STAR_POS_W-1:0] x = cnth.val[STAR_POS_W-1:0];
+wire [STAR_POS_W-1:0] y = cntv.val[STAR_POS_W-1:0];
+wire [STARS_X_W-1:0] star_index_x = cnth.val[STAR_POS_W+STARS_X_W-1 : STAR_POS_W];
+wire [STARS_Y_W-1:0] star_index_y = cntv.val[STAR_POS_W+STARS_Y_W-1 : STAR_POS_W];
+
+st_STAR star;
+assign star = GS.stars[star_index_y][star_index_x];
+
 always @(posedge clk) begin
 	
 	//// ADVANCE COUNTERS ////
@@ -544,6 +552,20 @@ always @(posedge clk) begin
 				
 			end
 		endcase
+		
+		
+		/// DRAW STARS ///
+		
+		if(color == GS.render.palette.bg) begin
+			if(x >= star.pos_x &&
+				y >= star.pos_y &&
+				x <  star.pos_x + star.stage &&
+				y <  star.pos_y + star.stage) begin
+					color = star.color;
+			end
+		end
+		
+		/// DEBUG ///
 	
 		if(GS.options.debug && cntv.val <= 5 && cnth.val <= 5) begin
 			color ^= 3'b100;

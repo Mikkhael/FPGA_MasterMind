@@ -2,7 +2,8 @@ module RNG(
 	input clk,
 	input en,
 	input [31:0] seed,
-	output wire [31:0] res
+	output wire [31:0] res,
+	output wire [63:0] res_full
 );
 
 
@@ -13,6 +14,7 @@ reg       [31:0] state      = init_state;
 reg [63:0] mul_res = 0;
 
 assign res = mul_res[63:32];
+assign res_full = mul_res;
 
 always @(posedge clk) begin
 

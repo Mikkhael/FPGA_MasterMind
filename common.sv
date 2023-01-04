@@ -133,12 +133,25 @@ typedef struct {
 	st_GS_PALETTE palette;
 } st_GS_RENDER;
 
+parameter [4:0] STAR_POS_W = 5'd5;
+parameter [4:0] STAR_STAGE_W = 5'd3;
+parameter [4:0] STARS_X_W = 5'd2;
+parameter [4:0] STARS_Y_W = 5'd2;
+
+typedef struct {
+	reg [STAR_POS_W-1:0] pos_x;
+	reg [STAR_POS_W-1:0] pos_y;
+	reg [STAR_STAGE_W-1:0] stage;
+	reg [2:0] color;
+} st_STAR;
+
 typedef struct {
 	GAME_STATE_NAME 	state_name;
 	st_GS_NAVIGATION	navigation;
 	st_GS_OPTIONS	 	options;
 	st_GS_RENDER      render;
 	st_GS_BOARD			board;
+	st_STAR				stars[0:(1 << STARS_X_W)-1][0:(1 << STARS_Y_W)-1];
 } st_GAME_STATE;
 
 // DECIMALIZER
