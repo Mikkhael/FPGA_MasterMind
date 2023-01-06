@@ -3,16 +3,34 @@
 	
 //// VGA Timings ////
 
-parameter logic [10:0] RES_H = 11'd800; // Color pulses
-parameter logic [10:0] RES_V = 11'd600; // Color lines
 
-parameter logic [10:0] BLK_HF = 11'd40;  // Blank Front Porch
-parameter logic [10:0] BLK_HT = 11'd128; // Blank Time
-parameter logic [10:0] BLK_HB = 11'd88;  // Blank Back Porch
+////// 800 x 600 , 40 MHz pixel clock //////
 
-parameter logic [10:0] BLK_VF = 11'd1;   // Blank Front Porch
-parameter logic [10:0] BLK_VT = 11'd4;   // Blank Time
-parameter logic [10:0] BLK_VB = 11'd23;   // Blank Back Porch
+//parameter logic [10:0] RES_H = 11'd800; // Color pulses
+//parameter logic [10:0] RES_V = 11'd600; // Color lines
+//parameter logic [10:0] BLK_HF = 11'd40;  // Blank Front Porch
+//parameter logic [10:0] BLK_HT = 11'd128; // Blank Time
+//parameter logic [10:0] BLK_HB = 11'd88;  // Blank Back Porch
+//parameter logic [10:0] BLK_VF = 11'd1;   // Blank Front Porch
+//parameter logic [10:0] BLK_VT = 11'd4;   // Blank Time
+//parameter logic [10:0] BLK_VB = 11'd23;   // Blank Back Porch
+//parameter logic HSYNC_POLARITY = 1;
+//parameter logic VSYNC_POLARITY = 1;
+
+////// 640 x 480 , 25,175 MHz pixel clock //////
+
+parameter logic [10:0] RES_H = 11'd640; // Color pulses
+parameter logic [10:0] RES_V = 11'd480; // Color lines
+parameter logic [10:0] BLK_HF = 11'd16; // Blank Front Porch
+parameter logic [10:0] BLK_HT = 11'd96; // Blank Time
+parameter logic [10:0] BLK_HB = 11'd48; // Blank Back Porch
+parameter logic [10:0] BLK_VF = 11'd10; // Blank Front Porch
+parameter logic [10:0] BLK_VT = 11'd2;  // Blank Time
+parameter logic [10:0] BLK_VB = 11'd33; // Blank Back Porch
+parameter logic HSYNC_POLARITY = 0;
+parameter logic VSYNC_POLARITY = 0;
+
+///////////////////
 
 parameter H_TIME_TOTAL = RES_H + BLK_HF + BLK_HT + BLK_HB;
 parameter V_TIME_TOTAL = RES_V + BLK_VF + BLK_VT + BLK_VB;
@@ -240,6 +258,8 @@ parameter st_GS_PALETTE palettes [0:4] = '{
 	selected_bg   : 3'b111
 }};
 
+
+//parameter reg [PIN_COLOR_W-1:0] PIN_COLOR_NONE = {PIN_COLOR_W{1'd1}};
 parameter reg [1:0][2:0] pin_colorset [0:max_pin_colors-1] = '{
 // Main 6
 	{C_RED,     C_RED},
@@ -269,6 +289,34 @@ parameter reg [1:0][2:0] pin_colorset [0:max_pin_colors-1] = '{
 // Mixed Magenta 21 (=21)
 	{C_MAGENTA, C_CYAN}
 };
+
+//parameter reg [23:0] hdmi_pin_colorset [0:max_pin_colors-1] = '{
+//
+//	24'hFF2222,
+//	24'h22FF22,
+//	24'h2222FF,
+//	24'hFFFF22,
+//	24'hFF22FF,
+//	24'h22FFFF,
+//	
+//	24'hFF5555,
+//	24'h55FF55,
+//	24'h5555FF,
+//	24'hFFFF55,
+//	24'hFF55FF,
+//	24'h55FFFF,
+//	
+//	24'hFFAAAA,
+//	24'hAAFFAA,
+//	24'hAAAAFF,
+//	24'hFFFFAA,
+//	24'hFFAAFF,
+//	24'hAAFFFF,
+//	
+//	24'h222222,
+//	24'h555555,
+//	24'hAAAAAA
+//};
 
 
 // Constants

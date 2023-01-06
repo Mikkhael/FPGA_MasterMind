@@ -52,6 +52,21 @@ module CLK_DIV #(parameter DIV_BITS)
 		counter = counter + 1'd1;
 endmodule
 
+module CLK_DIV_BY_10
+(
+	input wire in,
+	output reg out = 0
+);
+	reg [2:0] counter = 0;
+	always @(posedge in)
+		if(counter == 0) begin
+			counter <= 3'd4;
+			out <= ~out;
+		end else begin
+			counter <= counter - 1'd1;
+		end
+endmodule
+
 module DEBOUNCE(
 	input wire clk,
 	input wire in,
@@ -99,6 +114,25 @@ module DIV_MOD #(
 	always @(*) begin
 		div = truncate_div(in / base);
 		mod = truncate_mod(in % base);
+	end
+
+endmodule
+
+
+module DIFF(
+	input  wire trig,
+	output wire p,
+	output wire n
+);
+
+	always_comb begin
+		if(trig) begin
+			p <= 1'b1;
+			n <= 1'b0;
+		end else begin
+			p <= 1'b0;
+			n <= 1'b1;
+		end
 	end
 
 endmodule

@@ -35,7 +35,7 @@
 	- resolutions (dynamic pixel sizes)
 	
 
-- hdmi
++ hdmi
 
 - highscores
 

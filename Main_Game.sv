@@ -18,7 +18,21 @@ output reg VGA_R = 0,
 output reg VGA_G = 0,
 output reg VGA_B = 0,
 output reg VGA_HSYNC = 0,
-output reg VGA_VSYNC = 0
+output reg VGA_VSYNC = 0,
+
+output wire HDMI_D0,
+output wire HDMI_D1,
+output wire HDMI_D2,
+output wire HDMI_CLK
+
+//output wire HDMI_D0p,
+//output wire HDMI_D1p,
+//output wire HDMI_D2p,
+//output wire HDMI_CLKp,
+//output wire HDMI_D0n,
+//output wire HDMI_D1n,
+//output wire HDMI_D2n,
+//output wire HDMI_CLKn
 );
 
 wire pll_areset = 0;
@@ -26,7 +40,16 @@ wire pll_areset = 0;
 wire CLK_PLL;
 wire CLK_PLL2;
 wire CLK_VGA;
-PLL main_pll(pll_areset, CLK0, CLK_PLL, CLK_PLL2, CLK_VGA);
+wire CLK_TMDS;
+PLL main_pll(
+	 .areset(pll_areset), 
+	 .inclk0(CLK0),
+	 .c0(CLK_PLL), 
+	 .c1(CLK_PLL2), 
+//	 .c2(CLK_VGA), 
+	 .c3(CLK_TMDS)
+);
+CLK_DIV_BY_10 tmds_div(CLK_TMDS, CLK_VGA);
 
 wire BTN_DEB_LEFT  , BTN_EDGE_LEFT;
 wire BTN_DEB_DOWN  , BTN_EDGE_DOWN;
@@ -140,13 +163,40 @@ parameter update_stars_pos_y = STAR_POS_W   + update_stars_pos_x;
 parameter update_stars_stage = STAR_STAGE_W + update_stars_pos_y;
 parameter update_stars_color = 3 			  + update_stars_stage;
 
+wire vga_blanking, VGA_HSYNC_temp, VGA_VSYNC_temp;
+//wire [PIN_COLOR_W-1:0] color_index;
+VGA_Game_Renderer vga(	
+	CLK_VGA, font_rom_clk, font_rom_addr, font_rom_q,
+	board_ram_rclk, board_ram_raddr, board_ram_q, 
+	star_ram_rclk, star_ram_raddr, star_ram_q, 
+	GS_vga, GS_vga_decim,
+	time_counter, 
+	vga_blanking,
+//	color_index,
+	{VGA_R, VGA_G, VGA_B}, VGA_HSYNC_temp, VGA_VSYNC_temp
+);
 
-VGA_Game_Renderer vga(	CLK_VGA, font_rom_clk, font_rom_addr, font_rom_q,
-								board_ram_rclk, board_ram_raddr, board_ram_q, 
-								star_ram_rclk, star_ram_raddr, star_ram_q, 
-								GS_vga, GS_vga_decim,
-								time_counter, 
-								{VGA_R, VGA_G, VGA_B}, VGA_HSYNC, VGA_VSYNC);
+assign VGA_HSYNC = HSYNC_POLARITY ? VGA_HSYNC_temp : ~VGA_HSYNC_temp;
+assign VGA_VSYNC = VSYNC_POLARITY ? VGA_VSYNC_temp : ~VGA_VSYNC_temp;
+
+//wire HDMI_D2, HDMI_D1, HDMI_D0;
+//DIFF diff1(CLK_TMDS, HDMI_CLKp, HDMI_CLKn);
+//DIFF diff2(HDMI_D0, HDMI_D0p, HDMI_D0n);
+//DIFF diff3(HDMI_D1, HDMI_D1p, HDMI_D1n);
+//DIFF diff4(HDMI_D2, HDMI_D2p, HDMI_D2n);
+
+assign HDMI_CLK = CLK_VGA;
+VGA_TO_HDMI vga_to_hdmi(
+	CLK_VGA,
+	CLK_TMDS,
+	{VGA_R, VGA_G, VGA_B},
+//	color_index,
+	vga_blanking,
+	VGA_HSYNC_temp,
+	VGA_VSYNC_temp,
+	{HDMI_D2, HDMI_D1, HDMI_D0}
+);
+
 
 `define add_clumped(value, step, max) \
 	value = (value >= (max) || (step) >= (max) - value) ? (max) : (value + (step));
@@ -313,7 +363,7 @@ always @(posedge CLK_PLL) begin
 	if(show_firework) begin
 		if(GS.firework.p == 0) begin
 			GS.firework.x = rng_out[10:0]  % RES_H;
-			GS.firework.y = rng_out[21:10] % RES_V;
+			GS.firework.y = rng_out[21:11] % RES_V;
 			GS.firework.p = firework_starting_p;
 			GS.firework.r = 0;
 		end
@@ -338,8 +388,6 @@ always @(posedge CLK_PLL) begin
 	if(all_stars_updated) begin
 		update_stars = 0;
 	end
-	
-	if(show_firework)
 	
 	/// UPDATE RENDERING ///
 	

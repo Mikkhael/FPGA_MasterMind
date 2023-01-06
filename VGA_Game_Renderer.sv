@@ -18,6 +18,8 @@ module VGA_Game_Renderer(
 	
 	input wire [31:0] time_counter,
 	
+	//output reg  [PIN_COLOR_W-1:0] color_index = PIN_COLOR_NONE,
+	output wire 		BLANKING,
 	output wire [2:0] RGB,
 	output wire 		HSYNC,
 	output wire			VSYNC
@@ -84,7 +86,9 @@ st_counters_v cntv       = '{default: 0};
 
 
 reg [2:0] color = 3'b000;
+//reg [PIN_COLOR_W-1:0] color_index = PIN_COLOR_NONE;
 
+assign BLANKING = !(cnth.val <  RES_H && cntv.val < RES_V);
 assign RGB   = (cnth.val <  RES_H          && cntv.val < RES_V) ? color : 3'b000;
 assign HSYNC = (cnth.val >= RES_H + BLK_HF && cnth.val < RES_H + BLK_HF + BLK_HT);
 assign VSYNC = (cntv.val >= RES_V + BLK_VF && cntv.val < RES_V + BLK_VF + BLK_VT);
@@ -210,7 +214,7 @@ reg is_selected = 0;
 reg is_bg = 0;
 reg blink = 0;
 
-reg [7:0] temp_color_index = 0;
+reg [PIN_COLOR_W-1:0] temp_color_index = 0;
 reg is_board_current_guess = 0;
 reg is_board_above_current_guess = 0;
 
@@ -483,6 +487,7 @@ always @(posedge clk) begin
 	
 	//// DRAW ////
 	
+//	color_index = PIN_COLOR_NONE;
 	if(!cnth.blanking && !cntv.blanking) begin
 	
 		blink = !time_counter[16] && !time_counter[17];
@@ -533,7 +538,7 @@ always @(posedge clk) begin
 						
 						if(cntv.fontline != FONT_H && cnth.fontcol != FONT_W) begin
 							if(temp_color_index >= GS.options.pin_colors || (blink && is_selected)) color = get_palette_color(1'd1, is_selected);
-							else 																	 						color = get_pin_color(temp_color_index);
+							else 																	 						/*color_index = temp_color_index;*/color = get_pin_color(temp_color_index);
 						end else begin
 							color = (is_selected) ? GS.render.palette.selected_bg : GS.render.palette.bg;
 							if((cntv.fontline == FONT_H && cntv.charline == GS.render.board_tiles_dialog_charlines_end) ||
@@ -547,10 +552,10 @@ always @(posedge clk) begin
 						color = get_palette_color(1'd1, is_selected);
 						if(cnth.fontcol != FONT_W && cntv.fontline != FONT_H) begin
 							if(board_current_line_index <= GS.board.guessed_count) begin
-								if(is_board_current_guess) color = get_pin_color(GS.board.current_guess[cnth.charcol]);
-								else                       color = get_pin_color(board_ram_q[PIN_COLOR_W-1:0]);
+								if(is_board_current_guess) /*color_index = GS.board.current_guess[cnth.charcol];*/color = get_pin_color(GS.board.current_guess[cnth.charcol]);
+								else                       /*color_index = board_ram_q[PIN_COLOR_W-1:0];*/color = get_pin_color(board_ram_q[PIN_COLOR_W-1:0]);
 							end
-							if(cntv.charline == 0 && GS.options.debug) color = get_pin_color(GS.board.secret[cnth.charcol]);
+							if(cntv.charline == 0 && GS.options.debug) /*color_index = GS.board.secret[cnth.charcol];*/color = get_pin_color(GS.board.secret[cnth.charcol]);
 						end
 					end
 					BOARD_GUESS: begin
@@ -595,6 +600,10 @@ always @(posedge clk) begin
 				
 			end
 		endcase
+		
+//		if(color_index != PIN_COLOR_NONE) begin
+//			color = get_pin_color(color_index);
+//		end
 		
 		
 		/// STARS ///
