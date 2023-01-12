@@ -74,7 +74,7 @@ module DEBOUNCE(
 );
 
 	reg last = 0;
-	reg [10:0] counter = 0;
+	reg [11:0] counter = 0;
 
 	always @(posedge clk) begin
 		if(last == in) 
@@ -82,7 +82,7 @@ module DEBOUNCE(
 		else 
 			counter = 0;
 			
-		if(counter[10]) begin
+		if(counter[11]) begin
 			out = last;
 			counter = 0;
 		end

@@ -23,7 +23,9 @@ output reg VGA_VSYNC = 0,
 output wire HDMI_D0,
 output wire HDMI_D1,
 output wire HDMI_D2,
-output wire HDMI_CLK
+output wire HDMI_CLK,
+
+output wire BUZZER_ON
 
 //output wire HDMI_D0p,
 //output wire HDMI_D1p,
@@ -38,14 +40,14 @@ output wire HDMI_CLK
 wire pll_areset = 0;
 
 wire CLK_PLL;
-wire CLK_PLL2;
+//wire CLK_PLL2;
 wire CLK_VGA;
 wire CLK_TMDS;
 PLL main_pll(
 	 .areset(pll_areset), 
 	 .inclk0(CLK0),
 	 .c0(CLK_PLL), 
-	 .c1(CLK_PLL2), 
+//	 .c1(CLK_PLL2), 
 //	 .c2(CLK_VGA), 
 	 .c3(CLK_TMDS)
 );
@@ -80,9 +82,9 @@ EDGE_NEG edge_debug(CLK_PLL, BTN_DEB_DEBUG,  BTN_EDGE_DEBUG);
 reg [3:0] LEDS = 0;
 assign {LED3, LED2, LED1, LED0} = ~LEDS;
 
-// CLK_f = 500 kHz
-// CLK_T = 1/500000 s
-// 1s ~ (1.048s) = 2^19 * CLK_T
+// CLK_f = 1 MHz
+// CLK_T = 1/1000000 s
+// 1s ~ (1.048s) = 2^20 * CLK_T
 reg [31:0] time_counter = 0;
 
 wire [ADDR_W-1:0] font_rom_addr;
@@ -107,6 +109,10 @@ wire [8:0]   star_ram_raddr;
 wire         star_ram_wclk = CLK_PLL;
 wire         star_ram_rclk;
 STAR_RAM star_ram(star_ram_data, star_ram_raddr, star_ram_rclk, star_ram_waddr, star_ram_wclk, star_ram_wen, star_ram_q);
+
+TUNE_ID music_tune_id = 0;
+reg music_new_tune = 0;
+MUSIC_PLAYER music_player(CLK_PLL, music_new_tune, music_tune_id, BUZZER_ON);
 
 st_GAME_STATE GS = '{default:0,
 	state_name: GS_MAIN_MENU,
@@ -306,8 +312,8 @@ endfunction
 
 // PIN_POS_W = 5
 // [(PIN_POS_W*2):0] = 11
-// CLK_T = 1/500000 s
-// Ram_Upload_T = CLK_T * 2^11 = 4.096 ms
+// CLK_T = 1/1000000 s
+// Ram_Upload_T = CLK_T * 2^11 = 2.048 ms
 
 reg [(PIN_POS_W*2):0] ram_loader_step = 0;
 wire [PIN_POS_W-1:0]  ram_loader_step_low    = ram_loader_step[PIN_POS_W-1:0];
@@ -319,6 +325,7 @@ wire show_firework = GS.state_name == GS_GAME && (
 							GS.board.dial_state == DIAL_YOUWIN  ||
 							GS.board.dial_state == DIAL_GUESSER ||
 							GS.board.dial_state == DIAL_SETTER);
+reg firework_initialized = 0;
 							
 parameter firework_starting_p = 11'd16;
 wire firework_change_r = time_counter[10:0] == 0;
@@ -327,10 +334,17 @@ wire firework_change_p = time_counter[16:0] == 0;
 reg check_for_win = 0;
 
 always @(posedge CLK_PLL) begin
+	time_counter <= time_counter + 1'd1;
 	
+	music_new_tune = 0;
 	board_ram_wen = 0;
 	star_ram_wen = 0;
 	rng_new_seed = 0;
+	
+	if(BTN_EDGE_DOWN || BTN_EDGE_LEFT || BTN_EDGE_RIGHT || BTN_EDGE_UP || BTN_EDGE_ENTER) begin
+		music_new_tune = 1;
+		music_tune_id = TUNE_BTN;
+	end
 	
 	GS.options.debug = BTN_DEB_DEBUG;
 	
@@ -361,11 +375,12 @@ always @(posedge CLK_PLL) begin
 	end
 	
 	if(show_firework) begin
-		if(GS.firework.p == 0) begin
+		if(GS.firework.p == 0 || !firework_initialized) begin
 			GS.firework.x = rng_out[10:0]  % RES_H;
 			GS.firework.y = rng_out[21:11] % RES_V;
 			GS.firework.p = firework_starting_p;
 			GS.firework.r = 0;
+			firework_initialized = 1;
 		end
 		if(firework_change_p) begin
 			--GS.firework.p;
@@ -373,6 +388,8 @@ always @(posedge CLK_PLL) begin
 		if(firework_change_r) begin
 			++GS.firework.r;
 		end
+	end else begin
+		firework_initialized = 0;
 	end
 	
 	/// STARS ///
@@ -389,9 +406,23 @@ always @(posedge CLK_PLL) begin
 		update_stars = 0;
 	end
 	
+//	if(BTN_EDGE_LEFT) begin
+//		music_new_tune = 1;
+//		music_tune_id = TUNE_BTN;
+//	end else if(BTN_EDGE_DOWN) begin
+//		music_new_tune = 1;
+//		music_tune_id = TUNE_Victory;
+//	end else if(BTN_EDGE_RIGHT) begin
+//		music_new_tune = 1;
+//		music_tune_id = TUNE_GameOver;
+//	end else if(BTN_EDGE_UP) begin
+//		music_new_tune = 1;
+//		music_tune_id = TUNE_None;
+//	end
+	
 	/// UPDATE RENDERING ///
 	
-	LEDS[3] = !GS.render.values_updated;
+//	LEDS[3] = !GS.render.values_updated;
 //	LEDS[3] = (stars_visited == (32'd1 << (STARS_X_W + STARS_Y_W))+2'd1);
 //	LEDS[2] = (stars_visited == (32'd1 << (STARS_X_W + STARS_Y_W)));
 //	LEDS[1] = (stars_visited == (32'd1 << (STARS_X_W + STARS_Y_W))-2'd1);
@@ -469,7 +500,7 @@ always @(posedge CLK_PLL) begin
 		GS.render.board_tiles_dialog_width  = (GS.options.pin_colors < 10 ? 3'd3 : (GS.options.pin_colors < 17 ? 3'd4 : 3'd5));
 		GS.render.board_tiles_dialog_height = (GS.options.pin_colors - 1'd1) / GS.render.board_tiles_dialog_width + 1'd1;
 		GS.render.board_tiles_dialog_subcols_end = GS.render.board_tiles_dialog_width * (FONT_W + 1'd1) * GS.options.PIX_W;
-		GS.render.board_tiles_dialog_charlines_end = GS.render.board_tiles_dialog_charlines_offset + GS.render.board_tiles_dialog_width - 2'd2;
+		GS.render.board_tiles_dialog_charlines_end = GS.render.board_tiles_dialog_charlines_offset + GS.render.board_tiles_dialog_width - 4'd2;
 		GS.render.board_text_dialog_input_charcols_offset = GS.render.charcols - 2'd3;
 		
 		GS.render.values_updated = 1'd1;
@@ -663,14 +694,22 @@ always @(posedge CLK_PLL) begin
 					if(check_for_win) begin
 						if(GS.board.gamemode != GAMEMODE_RANDOM) begin
 							if(GS.board.calculated_green == GS.options.pins_count) begin
+								music_new_tune = 1;
+								music_tune_id = TUNE_Victory;
 								GS.board.dial_state = DIAL_GUESSER;
 							end else if(GS.board.guessed_count >= GS.options.guesses) begin
+								music_new_tune = 1;
+								music_tune_id = TUNE_GameOver;
 								GS.board.dial_state = DIAL_SETTER;
 							end
 						end else begin
 							if(GS.board.calculated_green == GS.options.pins_count) begin
+								music_new_tune = 1;
+								music_tune_id = TUNE_Victory;
 								GS.board.dial_state = DIAL_YOUWIN;
 							end else if(GS.board.guessed_count >= GS.options.guesses) begin
+								music_new_tune = 1;
+								music_tune_id = TUNE_GameOver;
 								GS.board.dial_state = DIAL_YOULOSE;
 							end
 						end
@@ -699,19 +738,16 @@ always @(posedge CLK_PLL) begin
 	LEDS[0] = GS.board.is_guess_entered;
 	LEDS[1] = GS.board.is_guess_uploading;
 	LEDS[2] = GS.board.is_guess_uploaded;
+	LEDS[3] = music_new_tune;
 	//LEDS[3] = time_counter[19];
 	
 	//LEDS[2:0] = ram_loader_step[2:0];
 	//LEDS[3]   = ram_loader_step < GS.options.pins_count;
 	
-	if(VGA_VSYNC && GS.state_name != GS_GENERATE_PINS) begin
+	if(VGA_VSYNC_temp && GS.state_name != GS_GENERATE_PINS) begin
 		GS_vga = GS;
 	end
 	
-end
-
-always @(posedge CLK_PLL2) begin
-	time_counter += 1'd1;
 end
 
 endmodule

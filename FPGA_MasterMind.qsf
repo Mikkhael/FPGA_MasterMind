@@ -67,7 +67,7 @@ set_location_assignment PIN_L3 -to CLK0
 set_global_assignment -name POWER_PRESET_COOLING_SOLUTION "23 MM HEAT SINK WITH 200 LFPM AIRFLOW"
 set_global_assignment -name POWER_BOARD_THERMAL_MODEL "NONE (CONSERVATIVE)"
 set_global_assignment -name EDA_TEST_BENCH_ENABLE_STATUS TEST_BENCH_MODE -section_id eda_simulation
-set_global_assignment -name EDA_NATIVELINK_SIMULATION_TEST_BENCH HintsCalculation_tb -section_id eda_simulation
+set_global_assignment -name EDA_NATIVELINK_SIMULATION_TEST_BENCH RNG_tb -section_id eda_simulation
 set_global_assignment -name EDA_TEST_BENCH_NAME SegmentDisplay -section_id eda_simulation
 set_global_assignment -name EDA_DESIGN_INSTANCE_NAME NA -section_id SegmentDisplay
 set_global_assignment -name EDA_TEST_BENCH_MODULE_NAME SegmentDisplay_tb -section_id SegmentDisplay
@@ -97,18 +97,29 @@ set_location_assignment PIN_B15 -to BTN_RAW_DEBUG
 set_global_assignment -name EDA_TEST_BENCH_NAME RNG_tb -section_id eda_simulation
 set_global_assignment -name EDA_DESIGN_INSTANCE_NAME NA -section_id RNG_tb
 set_global_assignment -name EDA_TEST_BENCH_MODULE_NAME RNG_tb -section_id RNG_tb
-set_global_assignment -name EDA_TEST_BENCH_FILE Tests/SegmentDisplay_tb.sv -section_id SegmentDisplay -hdl_version SystemVerilog_2005
-set_global_assignment -name EDA_TEST_BENCH_FILE SegmentDisplay.sv -section_id SegmentDisplay -hdl_version SystemVerilog_2005
-set_global_assignment -name EDA_TEST_BENCH_FILE Tests/VGA_Basic_Controller_tb.sv -section_id VGA_Basic_Controller -hdl_version SystemVerilog_2005
-set_global_assignment -name EDA_TEST_BENCH_FILE Tests/RNG_tb.sv -section_id RNG_tb -hdl_version SystemVerilog_2005
-set_global_assignment -name EDA_TEST_BENCH_FILE rng.sv -section_id RNG_tb -hdl_version SystemVerilog_2005
 set_global_assignment -name EDA_TEST_BENCH_NAME HintsCalculation_tb -section_id eda_simulation
 set_global_assignment -name EDA_DESIGN_INSTANCE_NAME NA -section_id HintsCalculation_tb
 set_global_assignment -name EDA_TEST_BENCH_MODULE_NAME HintsCalculation_tb -section_id HintsCalculation_tb
-set_global_assignment -name EDA_TEST_BENCH_FILE Tests/HintsCalculation_tb.sv -section_id HintsCalculation_tb -hdl_version SystemVerilog_2005
+set_global_assignment -name PARTITION_NETLIST_TYPE SOURCE -section_id Top
+set_global_assignment -name PARTITION_FITTER_PRESERVATION_LEVEL PLACEMENT_AND_ROUTING -section_id Top
+set_global_assignment -name PARTITION_COLOR 16764057 -section_id Top
+set_location_assignment PIN_T4 -to HDMI_D0
+set_location_assignment PIN_R2 -to HDMI_D1
+set_location_assignment PIN_R5 -to HDMI_D2
+set_instance_assignment -name IO_STANDARD LVDS_E_3R -to HDMI_D0
+set_location_assignment PIN_T5 -to "HDMI_D0(n)"
+set_instance_assignment -name IO_STANDARD LVDS_E_3R -to HDMI_D1
+set_location_assignment PIN_R3 -to "HDMI_D1(n)"
+set_instance_assignment -name IO_STANDARD LVDS_E_3R -to HDMI_D2
+set_location_assignment PIN_R6 -to "HDMI_D2(n)"
+set_location_assignment PIN_T2 -to HDMI_CLK
+set_instance_assignment -name IO_STANDARD LVDS_E_3R -to HDMI_CLK
+set_location_assignment PIN_T3 -to "HDMI_CLK(n)"
+set_location_assignment PIN_B16 -to BUZZER_ON
 set_global_assignment -name SYSTEMVERILOG_FILE common.sv
 set_global_assignment -name SYSTEMVERILOG_FILE utility.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rng.sv
+set_global_assignment -name SYSTEMVERILOG_FILE MUSIC_PLAYER.sv
 set_global_assignment -name SYSTEMVERILOG_FILE Main.sv
 set_global_assignment -name SYSTEMVERILOG_FILE Main_Game.sv
 set_global_assignment -name SYSTEMVERILOG_FILE VGA_Game_Renderer.sv
@@ -135,21 +146,12 @@ set_global_assignment -name MIF_FILE ramtest1.mif
 set_global_assignment -name VERILOG_INCLUDE_FILE generated_params.vh
 set_global_assignment -name TEXT_FILE todo.txt
 set_global_assignment -name TEXT_FILE layout.txt
-set_global_assignment -name PARTITION_NETLIST_TYPE SOURCE -section_id Top
-set_global_assignment -name PARTITION_FITTER_PRESERVATION_LEVEL PLACEMENT_AND_ROUTING -section_id Top
-set_global_assignment -name PARTITION_COLOR 16764057 -section_id Top
 set_global_assignment -name QIP_FILE STAR_RAM.qip
 set_global_assignment -name SYSTEMVERILOG_FILE HDMI.sv
-set_location_assignment PIN_T4 -to HDMI_D0
-set_location_assignment PIN_R2 -to HDMI_D1
-set_location_assignment PIN_R5 -to HDMI_D2
-set_instance_assignment -name IO_STANDARD LVDS_E_3R -to HDMI_D0
-set_location_assignment PIN_T5 -to "HDMI_D0(n)"
-set_instance_assignment -name IO_STANDARD LVDS_E_3R -to HDMI_D1
-set_location_assignment PIN_R3 -to "HDMI_D1(n)"
-set_instance_assignment -name IO_STANDARD LVDS_E_3R -to HDMI_D2
-set_location_assignment PIN_R6 -to "HDMI_D2(n)"
-set_location_assignment PIN_T2 -to HDMI_CLK
-set_instance_assignment -name IO_STANDARD LVDS_E_3R -to HDMI_CLK
-set_location_assignment PIN_T3 -to "HDMI_CLK(n)"
+set_global_assignment -name EDA_TEST_BENCH_FILE Tests/SegmentDisplay_tb.sv -section_id SegmentDisplay -hdl_version SystemVerilog_2005
+set_global_assignment -name EDA_TEST_BENCH_FILE SegmentDisplay.sv -section_id SegmentDisplay -hdl_version SystemVerilog_2005
+set_global_assignment -name EDA_TEST_BENCH_FILE Tests/VGA_Basic_Controller_tb.sv -section_id VGA_Basic_Controller -hdl_version SystemVerilog_2005
+set_global_assignment -name EDA_TEST_BENCH_FILE Tests/RNG_tb.sv -section_id RNG_tb -hdl_version SystemVerilog_2005
+set_global_assignment -name EDA_TEST_BENCH_FILE rng.sv -section_id RNG_tb -hdl_version SystemVerilog_2005
+set_global_assignment -name EDA_TEST_BENCH_FILE Tests/HintsCalculation_tb.sv -section_id HintsCalculation_tb -hdl_version SystemVerilog_2005
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top

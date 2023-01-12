@@ -142,7 +142,7 @@ typedef struct {
 	
 	reg [PIN_COLOR_W-1:0] board_tiles_dialog_width;
 	reg [PIN_COLOR_W-1:0] board_tiles_dialog_height;
-	reg [2:0] board_tiles_dialog_charlines_offset;
+	reg [4:0] board_tiles_dialog_charlines_offset;
 	reg [10:0] board_tiles_dialog_subcols_end;
 	reg [4:0] board_tiles_dialog_charlines_end;
 	reg [2:0] board_text_dialog_charlines_offset;
